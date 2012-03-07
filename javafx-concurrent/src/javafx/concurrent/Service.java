@@ -25,6 +25,8 @@
 
 package javafx.concurrent;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.concurrent.*;
 import com.sun.javafx.logging.PlatformLogger;
 import com.sun.javafx.tk.Toolkit;
@@ -115,7 +117,12 @@ public abstract class Service<V> implements Worker<V>, EventTarget {
     private static final long THREAD_TIME_OUT = 1000;
 
     private static final BlockingQueue<Runnable> IO_QUEUE = new LinkedBlockingQueue<Runnable>();
-    private static final ThreadGroup THREAD_GROUP = new ThreadGroup("javafx concurrent thread pool");
+    // Addition of doPrivileged added due to RT-19580
+    private static final ThreadGroup THREAD_GROUP = AccessController.doPrivileged(new PrivilegedAction<ThreadGroup>() {
+        @Override public ThreadGroup run() {
+            return new ThreadGroup("javafx concurrent thread pool");
+        }
+    });
     private static final Thread.UncaughtExceptionHandler UNCAUGHT_HANDLER = new Thread.UncaughtExceptionHandler() {
         @Override public void uncaughtException(Thread thread, Throwable throwable) {
             // Ignore IllegalMonitorStateException, these are thrown from the ThreadPoolExecutor
@@ -128,12 +135,17 @@ public abstract class Service<V> implements Worker<V>, EventTarget {
     };
     
     private static final ThreadFactory THREAD_FACTORY = new ThreadFactory() {
-        @Override public Thread newThread(Runnable run) {
-            final Thread th = new Thread(THREAD_GROUP, run);
-            th.setUncaughtExceptionHandler(UNCAUGHT_HANDLER);
-            th.setPriority(Thread.MIN_PRIORITY);
-            th.setDaemon(true);
-            return th;
+        @Override public Thread newThread(final Runnable run) {
+            // Addition of doPrivileged added due to RT-19580
+            return AccessController.doPrivileged(new PrivilegedAction<Thread>() {
+                @Override public Thread run() {
+                    final Thread th = new Thread(THREAD_GROUP, run);
+                    th.setUncaughtExceptionHandler(UNCAUGHT_HANDLER);
+                    th.setPriority(Thread.MIN_PRIORITY);
+                    th.setDaemon(true);
+                    return th;
+                }
+            });
         }
     };
 

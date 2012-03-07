@@ -226,9 +226,6 @@ public class ProgressIndicatorSkin extends SkinBase<ProgressIndicator, ProgressI
         Arc arcShape;
         Arc arcProgress;
 
-        // css properties
-        private Paint textFill = Color.BLACK;
-
         public DeterminateIndicator(ProgressIndicator control, ProgressIndicatorSkin s) {
             this.control = control;
             this.skin = s;
@@ -246,7 +243,6 @@ public class ProgressIndicatorSkin extends SkinBase<ProgressIndicator, ProgressI
             getChildren().clear();
 
             text = new Text((control.getProgress() >= 1) ? (DONE) : ("" + intProgress + "%"));
-            text.setFill(textFill);
             text.setTextOrigin(VPos.TOP);
             text.getStyleClass().setAll("text", "percentage");
 
@@ -578,4 +574,15 @@ public class ProgressIndicatorSkin extends SkinBase<ProgressIndicator, ProgressI
     public static List<StyleableProperty> impl_CSS_STYLEABLES() {
         return StyleableProperties.STYLEABLES;
     };
+
+    /**
+     * RT-19263
+     * @treatAsPrivate implementation detail
+     * @deprecated This is an experimental API that is not intended for general use and is subject to change in future versions
+     */
+    @Deprecated
+    public List<StyleableProperty> impl_getStyleableProperties() {
+        return impl_CSS_STYLEABLES();
+    }
+
 }

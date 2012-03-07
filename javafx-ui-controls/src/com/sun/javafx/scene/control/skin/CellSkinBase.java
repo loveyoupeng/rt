@@ -69,7 +69,13 @@ public class CellSkinBase<C extends Cell, B extends CellBehaviorBase<C>> extends
 
                 @Override
                 public void set(double value) {
-                    cellSizeSet = value != DEFAULT_CELL_SIZE;
+                    // Commented this out due to RT-19794, because otherwise
+                    // cellSizeSet would be false when the default caspian.css
+                    // cell size was set. This would lead to 
+                    // ListCellSkin.computePrefHeight computing the pref height
+                    // of the cell (which is about 22px), rather than use the 
+                    // value provided by caspian.css (which is 24px).
+                    cellSizeSet = true;//value != DEFAULT_CELL_SIZE;
                     super.set(value);
                 }
                 
@@ -161,5 +167,15 @@ public class CellSkinBase<C extends Cell, B extends CellBehaviorBase<C>> extends
     public static List<StyleableProperty> impl_CSS_STYLEABLES() {
         return StyleableProperties.STYLEABLES;
     };
+
+    /**
+     * RT-19263
+     * @treatAsPrivate implementation detail
+     * @deprecated This is an experimental API that is not intended for general use and is subject to change in future versions
+     */
+    @Deprecated
+    public List<StyleableProperty> impl_getStyleableProperties() {
+        return impl_CSS_STYLEABLES();
+    }
 
 }

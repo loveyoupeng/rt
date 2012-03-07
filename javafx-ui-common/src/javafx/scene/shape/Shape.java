@@ -406,7 +406,7 @@ public abstract class Shape extends Node {
                 
                 @Override
                 public StyleableProperty getStyleableProperty() {
-                    return getStyleablePropertyForFillProperty();
+                    return impl_cssGetStyleablePropertyForFillProperty();
                 }
 
                 @Override
@@ -428,8 +428,11 @@ public abstract class Shape extends Node {
      * default value for the {@link Shape#fill} property. This allows
      * the {@link Shape#fill} property method getStyleableProperty to 
      * return a StyleableProperty with the correct default.
+     * @treatAsPrivate Implementation detail
+     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
-    protected StyleableProperty getStyleablePropertyForFillProperty() {
+    @Deprecated
+    protected StyleableProperty impl_cssGetStyleablePropertyForFillProperty() {
         return StyleableProperties.FILL;
     }
 
@@ -795,6 +798,16 @@ public abstract class Shape extends Node {
     @Deprecated
     public static List<StyleableProperty> impl_CSS_STYLEABLES() {
         return Shape.StyleableProperties.STYLEABLES;
+    }
+
+    /**
+     * RT-19263
+     * @treatAsPrivate implementation detail
+     * @deprecated This is an experimental API that is not intended for general use and is subject to change in future versions
+     */
+    @Deprecated
+    public List<StyleableProperty> impl_getStyleableProperties() {
+        return impl_CSS_STYLEABLES();
     }
 
     /**
