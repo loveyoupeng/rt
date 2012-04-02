@@ -419,31 +419,6 @@ public abstract class Node implements EventTarget {
      *************************************************************************/
 
     /**
-     * Called only by Text to update the state and clear dirtybits in the PG graph
-     * TODO: This must be removed as soon as RT-13735 is complete, since
-     * TextHelper should work with a PG node directly or some other means rather
-     * than using this method.
-     *
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_syncPGNodeDirect() {
-        if (!impl_isDirtyEmpty()) {
-            // Workaround for Don't RT-7446 update the state controlled by
-            // NODE_TRANSFORM.
-            boolean nodeTxDirty = impl_isDirty(DirtyBits.NODE_TRANSFORM);
-            impl_clearDirty(DirtyBits.NODE_TRANSFORM);
-            boolean boundsDirty = impl_isDirty(DirtyBits.NODE_BOUNDS);
-            impl_clearDirty(DirtyBits.NODE_BOUNDS);
-            impl_updatePG();
-            clearDirty();
-            if (nodeTxDirty) impl_setDirty(DirtyBits.NODE_TRANSFORM);
-            if (boundsDirty) impl_setDirty(DirtyBits.NODE_BOUNDS);
-        }
-    }
-
-    /**
      * Called by the synchronizer to update the state and
      * clear dirtybits of this node in the PG graph
      *
@@ -4036,7 +4011,7 @@ public abstract class Node implements EventTarget {
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
     @Deprecated
-    protected boolean impl_hasTransforms() {
+    public boolean impl_hasTransforms() {
         return (nodeTransformation != null)
                 && nodeTransformation.hasTransforms();
     }
@@ -6264,10 +6239,6 @@ public abstract class Node implements EventTarget {
 
     /**
      * Event dispatcher for invoking preprocessing of mouse events
-     *
-     * TODO: The dispatcher is inserted into the event dispatch chain, this
-     * needs to be solved differently, this way it's impossible for user
-     * to override this behavior.
      */
     private EventDispatcher preprocessMouseEventDispatcher;
 
