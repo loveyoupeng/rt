@@ -1696,6 +1696,7 @@ public class Scene implements EventTarget {
      * @treatAsPrivate implementation detail
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
+    // SB-dependency: RT-11080 has been filed to track this
     @Deprecated
     public Node impl_getFocusOwner() {
         return getKeyHandler().getFocusOwner();
@@ -1708,6 +1709,7 @@ public class Scene implements EventTarget {
      * @treatAsPrivate implementation detail
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
+    // SB-dependency: RT-11080 has been filed to track this
     @Deprecated
     private ObjectProperty<Node> impl_focusOwner;
 
@@ -1733,6 +1735,7 @@ public class Scene implements EventTarget {
      * @treatAsPrivate implementation detail
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
+    // SB-dependency: RT-11080 has been filed to track this
     @Deprecated
     public final ObjectProperty<Node> impl_focusOwnerProperty() {
         if (impl_focusOwner == null) {
