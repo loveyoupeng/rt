@@ -24,6 +24,7 @@
  */
 package com.sun.javafx.scene.control.skin;
 
+import com.sun.javafx.PlatformUtil;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -78,6 +79,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javafx.application.Platform;
+import javafx.scene.input.*;
 
 public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
 
@@ -162,6 +165,8 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
         } 
         selectedTab = getSkinnable().getSelectionModel().getSelectedItem();        
         isSelectingTab = false;
+        
+        initializeSwipeHandlers();
     }
 
     public StackPane getSelectedTabContentRegion() {
@@ -312,6 +317,22 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
         return Side.TOP.equals(tabPosition) || Side.BOTTOM.equals(tabPosition);
     }
 
+    private void initializeSwipeHandlers() {
+        if (PlatformUtil.isEmbedded()) {
+            setOnSwipeLeft(new EventHandler<SwipeEvent>() {
+                @Override public void handle(SwipeEvent t) {
+                    getBehavior().selectNextTab();
+                }
+            });
+
+            setOnSwipeRight(new EventHandler<SwipeEvent>() {
+                @Override public void handle(SwipeEvent t) {
+                    getBehavior().selectPreviousTab();
+                }
+            });        
+        }    
+    }
+    
     //TODO need to cache this.
     private boolean isFloatingStyleClass() {
         return getSkinnable().getStyleClass().contains(TabPane.STYLE_CLASS_FLOATING);
@@ -887,7 +908,7 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
                     setOnMousePressed(null);
                 }
             });
-
+            
             updateGraphicRotation();
 
             inner = new StackPane() {
@@ -1059,7 +1080,7 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
                         getBehavior().selectTab(getTab());
                     }
                 }
-            });
+            });            
         }
 
         private void updateGraphicRotation() {
@@ -1338,17 +1359,10 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
             downArrowBtn.getChildren().add(downArrow);
             downArrowBtn.setOnMouseClicked(new EventHandler<MouseEvent>() {
                 @Override public void handle(MouseEvent me) {
-                    for (MenuItem mi: popup.getItems()) {
-                        TabMenuItem tmi = (TabMenuItem)mi;
-                        if (selectedTab.equals(tmi.getTab())) {
-                            tmi.setSelected(true);
-                            break;
-                        }
-                    }
-                    popup.show(downArrowBtn, Side.BOTTOM, 0, 0);
+                    showPopupMenu();
                 }
             });
-
+            
             setupPopupMenu();
 
             inner = new StackPane() {
@@ -1606,6 +1620,17 @@ public class TabPaneSkin extends SkinBase<TabPane, TabPaneBehavior> {
                 menuitems.add(item);
             }
             popup.getItems().addAll(menuitems);
+        }
+        
+        private void showPopupMenu() {
+            for (MenuItem mi: popup.getItems()) {
+                TabMenuItem tmi = (TabMenuItem)mi;
+                if (selectedTab.equals(tmi.getTab())) {
+                    tmi.setSelected(true);
+                    break;
+                }
+            }
+            popup.show(downArrowBtn, Side.BOTTOM, 0, 0);            
         }
     } /* End TabControlButtons*/
 

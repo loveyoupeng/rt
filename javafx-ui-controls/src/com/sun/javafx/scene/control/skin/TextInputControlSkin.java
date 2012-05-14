@@ -55,6 +55,7 @@ import javafx.scene.input.InputMethodEvent;
 import javafx.scene.input.InputMethodHighlight;
 import javafx.scene.input.InputMethodRequests;
 import javafx.scene.input.InputMethodTextRun;
+import javafx.scene.input.TouchEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.ClosePath;
@@ -285,21 +286,36 @@ public abstract class TextInputControlSkin<T extends TextInputControl, B extends
             }
         };
 
-        textInput.focusedProperty().addListener(new InvalidationListener() {
-            @Override public void invalidated(Observable observable) {
-                if (useFXVK) {
-                    Platform.runLater(new Runnable() {
-                        public void run() {
-                            if (textInput.isFocused()) {
-                                FXVK.attach(textInput);
-                            } else if (!(getScene().impl_getFocusOwner() instanceof TextInputControl)) {
-                                FXVK.detach();
+        if (PlatformUtil.isEmbedded()) {
+            textInput.focusedProperty().addListener(new InvalidationListener() {
+                @Override public void invalidated(Observable observable) {
+                    if (useFXVK) {
+                        Platform.runLater(new Runnable() {
+                            public void run() {
+                                if (textInput.isFocused()) {
+                                    FXVK.attach(textInput);
+                                } else if (!(getScene().impl_getFocusOwner() instanceof TextInputControl)) {
+                                    FXVK.detach();
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
+            });
+
+            if (textInput.getOnTouchStationary() == null) {
+                textInput.setOnTouchStationary(new EventHandler<TouchEvent>() {
+                    @Override public void handle(TouchEvent event) {
+                        ContextMenu menu = textInput.getContextMenu();
+                        if (menu != null &&
+                            showContextMenu(menu, event.getTouchPoint().getScreenX(),
+                                            event.getTouchPoint().getScreenY(), false)) {
+                            event.consume();
+                        }
+                    }
+                });
             }
-        });
+        }
 
         if (textInput.getContextMenu() == null) {
             class ContextMenuItem extends MenuItem {
