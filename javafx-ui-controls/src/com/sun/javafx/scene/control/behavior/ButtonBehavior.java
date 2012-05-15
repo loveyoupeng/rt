@@ -40,6 +40,8 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 
 import com.sun.javafx.PlatformUtil;
+import javafx.event.EventHandler;
+import javafx.scene.input.TouchEvent;
 
 /**
  * All of the "button" types (CheckBox, RadioButton, ToggleButton, and Button)

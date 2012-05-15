@@ -32,7 +32,6 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.VPos;
-import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
@@ -45,7 +44,8 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
-
+import com.sun.javafx.Utils;
+import javafx.geometry.Insets;
 /**
  *
  * @author paru
@@ -54,7 +54,9 @@ public class CustomColorDialog extends StackPane {
     
     private static final int CONTENT_PADDING = 10;
     private static final int RECT_SIZE = 200;
-    private static final int CONTROLS_WIDTH = 252;
+    private static final int CONTROLS_WIDTH = 256;
+    private static final int COLORBAR_GAP = 9;
+    private static final int LABEL_GAP = 2;
     
     final Stage dialog = new Stage();
     ColorRectPane colorRectPane;
@@ -66,16 +68,16 @@ public class CustomColorDialog extends StackPane {
     Rectangle colorRectOverlayTwo;
     Rectangle colorBar;
     Rectangle colorBarIndicator;
+    
     private Color currentColor = Color.WHITE;
-//    ObjectProperty<Color> currentColorProperty = new SimpleObjectProperty<Color>();
-    ObjectProperty<Color> customColorProperty = new SimpleObjectProperty<Color>();
+    ObjectProperty<Color> customColorProperty = new SimpleObjectProperty<Color>(Color.TRANSPARENT);
     boolean saveCustomColor = false;
     boolean useCustomColor = false;
     
-//    public CustomColorDialog(Window owner, ObjectProperty<Color> currentColorProperty) {
+    private WebColorField webField = null;
+    
     public CustomColorDialog(Window owner) {
-        getStyleClass().add("add-color-pane");
-//        this.currentColorProperty.bind(currentColorProperty);
+        getStyleClass().add("custom-color-dialog");
         if (owner != null) dialog.initOwner(owner);
         dialog.setTitle("Custom Colors..");
         dialog.initModality(Modality.APPLICATION_MODAL);
@@ -83,10 +85,8 @@ public class CustomColorDialog extends StackPane {
         colorRectPane = new ColorRectPane();
         controlsPane = new ControlsPane();
         
-        Scene scene = new Scene(new Group());
-        Group dialogRoot = (Group) scene.getRoot();
+        Scene scene = new Scene(this);
         getChildren().addAll(colorRectPane, controlsPane);
-        dialogRoot.getChildren().addAll(this);
         
         dialog.setScene(scene);
     }
@@ -150,7 +150,7 @@ public class CustomColorDialog extends StackPane {
     class ColorRectPane extends StackPane {
         
         private boolean changeIsLocal = false;
-        DoubleProperty hue = new SimpleDoubleProperty() {
+        DoubleProperty hue = new SimpleDoubleProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -159,7 +159,7 @@ public class CustomColorDialog extends StackPane {
                 }
             }
         };
-        DoubleProperty sat = new SimpleDoubleProperty() {
+        DoubleProperty sat = new SimpleDoubleProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -168,7 +168,7 @@ public class CustomColorDialog extends StackPane {
                 }
             }
         };
-        DoubleProperty bright = new SimpleDoubleProperty() {
+        DoubleProperty bright = new SimpleDoubleProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -182,7 +182,7 @@ public class CustomColorDialog extends StackPane {
         public Color getColor() { return color.get(); }
         public void setColor(Color newColor) { color.set(newColor); }
 
-        IntegerProperty red = new SimpleIntegerProperty() {
+        IntegerProperty red = new SimpleIntegerProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -192,7 +192,7 @@ public class CustomColorDialog extends StackPane {
             }
         };
         
-        IntegerProperty green = new SimpleIntegerProperty() {
+        IntegerProperty green = new SimpleIntegerProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -202,7 +202,7 @@ public class CustomColorDialog extends StackPane {
             }
         };
         
-        IntegerProperty blue = new SimpleIntegerProperty() {
+        IntegerProperty blue = new SimpleIntegerProperty(-1) {
             @Override protected void invalidated() {
                 if (!changeIsLocal) {
                     changeIsLocal = true;
@@ -287,7 +287,7 @@ public class CustomColorDialog extends StackPane {
             colorRectOverlayOne.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE, 
                     new Stop(0, Color.rgb(255, 255, 255, 1)), 
                     new Stop(1, Color.rgb(255, 255, 255, 0))));
-            colorRectOverlayOne.setStroke(Color.BLACK);
+            colorRectOverlayOne.setStroke(Utils.deriveColor(Color.web("#d0d0d0"), -20/100));
         
             EventHandler<MouseEvent> rectMouseHandler = new EventHandler<MouseEvent>() {
                 @Override public void handle(MouseEvent event) {
@@ -306,6 +306,7 @@ public class CustomColorDialog extends StackPane {
             
             colorBar = new Rectangle(20, RECT_SIZE);
             colorBar.setFill(createHueGradient());
+            colorBar.setStroke(Utils.deriveColor(Color.web("#d0d0d0"), -20/100));
 
             colorBarIndicator = new Rectangle(24, 10, null);
             colorBarIndicator.setLayoutX(CONTENT_PADDING+colorRect.getWidth()+13);
@@ -377,7 +378,13 @@ public class CustomColorDialog extends StackPane {
             colorRectOverlayOne.relocate(x, y);
             colorRectOverlayTwo.relocate(x, y);
             
-            colorBar.relocate(x+colorRect.getWidth()+10, y);
+            colorBar.relocate(x+colorRect.prefWidth(-1) + COLORBAR_GAP, y);
+        }
+        
+        @Override public double computePrefWidth(double height) {
+            return getInsets().getLeft() + colorRect.prefWidth(-1) + COLORBAR_GAP +
+                    colorBar.prefWidth(-1) + (colorBarIndicator.getBoundsInParent().getWidth() - colorBar.prefWidth(-1))
+                    + getInsets().getRight();
         }
     }
     
@@ -395,8 +402,9 @@ public class CustomColorDialog extends StackPane {
         Label newColorLabel;
         Rectangle currentColorRect;
         Rectangle newColorRect;
+        StackPane currentTransparent; // for opacity
+        StackPane newTransparent; // for opacity
         GridPane currentAndNewColor;
-        GridPane pillButtons;
         Rectangle currentNewColorBorder;
         ToggleButton hsbButton;
         ToggleButton rgbButton;
@@ -417,13 +425,22 @@ public class CustomColorDialog extends StackPane {
             getStyleClass().add("controls-pane");
             
             currentNewColorBorder = new Rectangle(CONTROLS_WIDTH, 18, null);
-            currentNewColorBorder.setStroke(Color.BLACK);
+            currentNewColorBorder.setStroke(Utils.deriveColor(Color.web("#d0d0d0"), -20/100));
+            currentNewColorBorder.setStrokeWidth(2);
+            
+            currentTransparent = new StackPane();
+            currentTransparent.setPrefSize(CONTROLS_WIDTH/2, 18);
+            currentTransparent.setId("transparent-current");
+            
+            newTransparent = new StackPane();
+            newTransparent.setPrefSize(CONTROLS_WIDTH/2, 18);
+            newTransparent.setId("transparent-new");
             
             currentColorRect = new Rectangle(CONTROLS_WIDTH/2, 18);
             currentColorRect.setFill(currentColor);
 
             newColorRect = new Rectangle(CONTROLS_WIDTH/2, 18);
-           
+            
             updateNewColorFill();
             colorRectPane.color.addListener(new ChangeListener<Color>() {
                 @Override
@@ -438,17 +455,17 @@ public class CustomColorDialog extends StackPane {
 
             currentColorLabel = new Label("Current Color");
             newColorLabel = new Label("New Color");
-            Rectangle spacer = new Rectangle(0, 18);
+            Rectangle spacer = new Rectangle(0, 12);
             
             whiteBox = new StackPane();
             whiteBox.getStyleClass().add("addcolor-controls-background");
             
             hsbButton = new ToggleButton("HSB");
-            hsbButton.setId("pill-left");
+            hsbButton.setId("toggle-button-left");
             rgbButton = new ToggleButton("RGB");
-            rgbButton.setId("pill-center");
+            rgbButton.setId("toggle-button-center");
             webButton = new ToggleButton("Web");
-            webButton.setId("pill-right");
+            webButton.setId("toggle-button-right");
             ToggleGroup group = new ToggleGroup();
             hsbButton.setToggleGroup(group);
             rgbButton.setToggleGroup(group);
@@ -489,11 +506,17 @@ public class CustomColorDialog extends StackPane {
             hBox.getChildren().addAll(hsbButton, rgbButton, webButton);
             
             currentAndNewColor = new GridPane();
+            currentAndNewColor.getStyleClass().add("current-new-color-grid");
             currentAndNewColor.add(currentColorLabel, 0, 0, 2, 1);
             currentAndNewColor.add(newColorLabel, 2, 0, 2, 1);
-            currentAndNewColor.add(currentColorRect, 0, 1, 2, 1);
-            currentAndNewColor.add(newColorRect, 2, 1, 2, 1);
-            currentAndNewColor.add(spacer, 0, 2, 4, 1);
+            Region r = new Region();
+            r.setPadding(new Insets(1, 128, 1, 128));
+            currentAndNewColor.add(r, 0, 1, 4, 1);
+            currentAndNewColor.add(currentTransparent, 0, 2, 2, 1);
+            currentAndNewColor.add(currentColorRect, 0, 2, 2, 1);
+            currentAndNewColor.add(newTransparent, 2, 2, 2, 1);
+            currentAndNewColor.add(newColorRect, 2, 2, 2, 1);
+            currentAndNewColor.add(spacer, 0, 3, 4, 1);
             
             // Color settings Grid Pane
             alphaSettings = new GridPane();
@@ -503,27 +526,28 @@ public class CustomColorDialog extends StackPane {
             alphaSettings.getStyleClass().add("alpha-settings");
 //            alphaSettings.setGridLinesVisible(true);
             
-            Rectangle spacer4 = new Rectangle(0, 4);
+            Rectangle spacer4 = new Rectangle(0, 12);
             alphaSettings.add(spacer4, 0, 0, 3, 1);
             
-            Label alphaLabel = new Label("Alpha:       ");
-            alphaLabel.setMinWidth(Control.USE_PREF_SIZE);
+            Label alphaLabel = new Label("Opacity:");
+            alphaLabel.setPrefWidth(68);
             alphaSettings.add(alphaLabel, 0, 1);
             
             Slider alphaSlider = new Slider(0, 100, 50);
-//            alphaSlider.valueProperty().bind(colorRectPane.bright);
+            alphaSlider.setPrefWidth(100);
             alphaSettings.add(alphaSlider, 1, 1);
             
             IntegerField alphaField = new IntegerField();
             alphaField.setSkin(new IntegerFieldSkin(alphaField));
-            alphaField.setPrefColumnCount(6);
+            alphaField.setPrefColumnCount(3);
+            alphaField.setMaxWidth(38);
             alphaSettings.add(alphaField, 2, 1);
             
                
             alphaField.valueProperty().bindBidirectional(colorRectPane.alpha);
             alphaSlider.valueProperty().bindBidirectional(colorRectPane.alpha);
             
-            Rectangle spacer5 = new Rectangle(0, 12);
+            Rectangle spacer5 = new Rectangle(0, 15);
             alphaSettings.add(spacer5, 0, 2, 3, 1);
             
             buttonBox = new HBox(4);
@@ -532,9 +556,13 @@ public class CustomColorDialog extends StackPane {
             saveButton.setOnAction(new EventHandler<ActionEvent>() {
                 @Override public void handle(ActionEvent t) {
                     saveCustomColor = true;
-                    customColorProperty.set(Color.rgb(colorRectPane.red.get(), 
+                    if (colorSettingsMode == ColorSettingsMode.WEB) {
+                        customColorProperty.set(webField.valueProperty().get());
+                    } else {
+                        customColorProperty.set(Color.rgb(colorRectPane.red.get(), 
                             colorRectPane.green.get(), colorRectPane.blue.get(), 
                             clamp(colorRectPane.alpha.get() / 100)));
+                    }
                     dialog.hide();
                     saveCustomColor = false;
                 }
@@ -543,20 +571,20 @@ public class CustomColorDialog extends StackPane {
             Button useButton = new Button("Use");
             useButton.setOnAction(new EventHandler<ActionEvent>() {
                 @Override public void handle(ActionEvent t) {
+                    useCustomColor = true;
                     customColorProperty.set(Color.rgb(colorRectPane.red.get(), 
                             colorRectPane.green.get(), colorRectPane.blue.get(), 
                             clamp(colorRectPane.alpha.get() / 100)));
                     dialog.hide();
+                    useCustomColor = false;
                 }
             });
             
             Button cancelButton = new Button("Cancel");
             cancelButton.setOnAction(new EventHandler<ActionEvent>() {
                 @Override public void handle(ActionEvent e) {
-                    useCustomColor = true;
                     customColorProperty.set(currentColor);
                     dialog.hide();
-                    useCustomColor = false;
                 }
             });
             buttonBox.getChildren().addAll(saveButton, useButton, cancelButton);
@@ -584,45 +612,51 @@ public class CustomColorDialog extends StackPane {
 
                 // Hue
                 Label hueLabel = new Label("Hue:");
-                hueLabel.setMinWidth(Control.USE_PREF_SIZE);
+                hueLabel.setMinWidth(68);
                 hsbSettings.add(hueLabel, 0, 1);
 
                 Slider hueSlider = new Slider(0, 360, 100);
+                hueSlider.setPrefWidth(100);
                 hsbSettings.add(hueSlider, 1, 1);
 
                 IntegerField hueField = new IntegerField();
                 hueField.setSkin(new IntegerFieldSkin(hueField));
-                hueField.setPrefColumnCount(6);
+                hueField.setPrefColumnCount(3);
+                hueField.setMaxWidth(38);
                 hsbSettings.add(hueField, 2, 1);
                 hueField.valueProperty().bindBidirectional(colorRectPane.hue);
                 hueSlider.valueProperty().bindBidirectional(colorRectPane.hue);
                 
                 // Saturation
                 Label saturationLabel = new Label("Saturation:");
-                saturationLabel.setMinWidth(Control.USE_PREF_SIZE);
+                saturationLabel.setMinWidth(68);
                 hsbSettings.add(saturationLabel, 0, 2);
 
                 Slider saturationSlider = new Slider(0, 100, 50);
+                saturationSlider.setPrefWidth(100);
                 hsbSettings.add(saturationSlider, 1, 2);
                 
                 IntegerField saturationField = new IntegerField();
                 saturationField.setSkin(new IntegerFieldSkin(saturationField));
-                saturationField.setPrefColumnCount(6);
+                saturationField.setPrefColumnCount(3);
+                saturationField.setMaxWidth(38);
                 hsbSettings.add(saturationField, 2, 2);
                 saturationField.valueProperty().bindBidirectional(colorRectPane.sat);
                 saturationSlider.valueProperty().bindBidirectional(colorRectPane.sat);
                 
                 // Brightness
                 Label brightnessLabel = new Label("Brightness:");
-                brightnessLabel.setMinWidth(Control.USE_PREF_SIZE);
+                brightnessLabel.setMinWidth(68);
                 hsbSettings.add(brightnessLabel, 0, 3);
 
                 Slider brightnessSlider = new Slider(0, 100, 50);
+                brightnessSlider.setPrefWidth(100);
                 hsbSettings.add(brightnessSlider, 1, 3);
 
                 IntegerField brightnessField = new IntegerField();
                 brightnessField.setSkin(new IntegerFieldSkin(brightnessField));
-                brightnessField.setPrefColumnCount(6);
+                brightnessField.setPrefColumnCount(3);
+                brightnessField.setMaxWidth(38);
                 hsbSettings.add(brightnessField, 2, 3);
 //                colorRectPane.bright.bindBidirectional(brightnessSlider.valueProperty());
 //                colorRectPane.bright.bindBidirectional(brightnessField.valueProperty());
@@ -649,17 +683,19 @@ public class CustomColorDialog extends StackPane {
                 spacer2.setPrefHeight(3);
                 rgbSettings.add(spacer2, 0, 0, 3, 1);
 
-                Label redLabel = new Label("Red:     ");
-                redLabel.setMinWidth(Control.USE_PREF_SIZE);
+                Label redLabel = new Label("Red:");
+                redLabel.setMinWidth(68);
                 rgbSettings.add(redLabel, 0, 1);
 
                 // Red ----------------------------------------
                 Slider redSlider = new Slider(0, 255, 100);
+                redSlider.setPrefWidth(100);
                 rgbSettings.add(redSlider, 1, 1);
 
                 IntegerField redField = new IntegerField();
                 redField.setSkin(new IntegerFieldSkin(redField));
-                redField.setPrefColumnCount(6);
+//                redField.setPrefColumnCount(3);
+                redField.setMaxWidth(38);
                 rgbSettings.add(redField, 2, 1);
                 
                 redField.valueProperty().bindBidirectional(colorRectPane.red);
@@ -667,15 +703,17 @@ public class CustomColorDialog extends StackPane {
                 
                 // Green ----------------------------------------
                 Label greenLabel = new Label("Green:     ");
-                greenLabel.setMinWidth(Control.USE_PREF_SIZE);
+                greenLabel.setMinWidth(68);
                 rgbSettings.add(greenLabel, 0, 2);
 
                 Slider greenSlider = new Slider(0, 255, 100);
+                greenSlider.setPrefWidth(100);
                 rgbSettings.add(greenSlider, 1, 2);
 
                 IntegerField greenField = new IntegerField();
                 greenField.setSkin(new IntegerFieldSkin(greenField));
-                greenField.setPrefColumnCount(6);
+//                greenField.setPrefColumnCount(3);
+                greenField.setMaxWidth(38);
                 rgbSettings.add(greenField, 2, 2);
                 
                 greenField.valueProperty().bindBidirectional(colorRectPane.green);
@@ -683,15 +721,18 @@ public class CustomColorDialog extends StackPane {
 
                 // Blue ----------------------------------------
                 Label blueLabel = new Label("Blue:      ");
-                blueLabel.setMinWidth(Control.USE_PREF_SIZE);
+//                blueLabel.setMinWidth(Control.USE_PREF_SIZE);
+                blueLabel.setMinWidth(68);
                 rgbSettings.add(blueLabel, 0, 3);
 
                 Slider blueSlider = new Slider(0, 255, 100);
+                blueSlider.setPrefWidth(100);
                 rgbSettings.add(blueSlider, 1, 3);
 
                 IntegerField blueField = new IntegerField();
                 blueField.setSkin(new IntegerFieldSkin(blueField));
-                blueField.setPrefColumnCount(6);
+//                blueField.setPrefColumnCount(3);
+                blueField.setMaxWidth(38);
                 rgbSettings.add(blueField, 2, 3);
 
                 Region spacer3 = new Region();
@@ -719,7 +760,7 @@ public class CustomColorDialog extends StackPane {
                 webLabel.setMinWidth(Control.USE_PREF_SIZE);
                 webSettings.add(webLabel, 0, 1);
 
-                WebColorField webField = new WebColorField();
+                webField = new WebColorField();
                 webField.setSkin(new WebColorFieldSkin(webField));
                 webField.valueProperty().bindBidirectional(colorRectPane.colorProperty());
                 webField.setPrefColumnCount(6);
@@ -752,7 +793,7 @@ public class CustomColorDialog extends StackPane {
             currentAndNewColor.resizeRelocate(x,
                     y, CONTROLS_WIDTH, 18);
             currentNewColorBorder.relocate(x, 
-                    y+controlsPane.currentColorLabel.prefHeight(-1));
+                    y+controlsPane.currentColorLabel.prefHeight(-1)+LABEL_GAP); 
             double hBoxX = computeXOffset(currentAndNewColor.prefWidth(-1), hBox.prefWidth(-1), HPos.CENTER);
             
             GridPane settingsGrid = (GridPane)settingsPane.getChildren().get(0);
@@ -761,29 +802,34 @@ public class CustomColorDialog extends StackPane {
             double settingsHeight = settingsPane.getChildren().get(0).prefHeight(-1);
             
             whiteBox.resizeRelocate(x, y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)/2, 
-                    CONTROLS_WIDTH, settingsHeight+hBox.prefHeight(-1)/2+6);
+                    CONTROLS_WIDTH, settingsHeight+hBox.prefHeight(-1)/2);
             
             hBox.resizeRelocate(x+hBoxX, y+currentAndNewColor.prefHeight(-1), 
                     hBox.prefWidth(-1), hBox.prefHeight(-1));
             
-            settingsPane.resizeRelocate(x+10, y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)+5,
+            settingsPane.resizeRelocate(x+10, y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1),
                     CONTROLS_WIDTH-28, settingsHeight);
             
             alphaSettings.resizeRelocate(x+10, 
-                    y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)+5+settingsHeight,
+                    y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)+settingsHeight,
                     CONTROLS_WIDTH-28, alphaSettings.prefHeight(-1));
              
             double buttonBoxX = computeXOffset(currentAndNewColor.prefWidth(-1), buttonBox.prefWidth(-1), HPos.RIGHT);
-            buttonBox.resizeRelocate(x+buttonBoxX, y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)+5+
+            buttonBox.resizeRelocate(x+buttonBoxX, y+currentAndNewColor.prefHeight(-1)+hBox.prefHeight(-1)+
                     settingsHeight+alphaSettings.prefHeight(-1), buttonBox.prefWidth(-1), buttonBox.prefHeight(-1));
         }
         
         @Override public double computePrefHeight(double width) {
             double settingsHeight = settingsPane.getChildren().get(0).prefHeight(-1);
-            return getInsets().getTop() + currentAndNewColor.prefHeight(width) +
-                    currentNewColorBorder.prefHeight(width) + hBox.prefHeight(width) +
-                    settingsHeight + alphaSettings.prefHeight(width) + 
-                    buttonBox.prefHeight(width) + getInsets().getBottom();
+            return getInsets().getTop() + currentAndNewColor.prefHeight(-1) +
+                    hBox.prefHeight(-1) + settingsHeight + 
+                    alphaSettings.prefHeight(-1) + buttonBox.prefHeight(-1) +
+                    getInsets().getBottom();
+            
+        }
+        
+        @Override public double computePrefWidth(double height) {
+            return getInsets().getLeft() + CONTROLS_WIDTH + getInsets().getRight();
         }
     }
     

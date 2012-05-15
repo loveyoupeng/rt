@@ -55,6 +55,7 @@ import javafx.scene.input.InputMethodEvent;
 import javafx.scene.input.InputMethodHighlight;
 import javafx.scene.input.InputMethodRequests;
 import javafx.scene.input.InputMethodTextRun;
+import javafx.scene.input.TouchEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.ClosePath;
@@ -74,6 +75,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.sun.javafx.PlatformUtil;
 import com.sun.javafx.css.StyleableBooleanProperty;
 import com.sun.javafx.css.StyleableObjectProperty;
 import com.sun.javafx.css.StyleableProperty;
@@ -90,7 +92,7 @@ import static com.sun.javafx.scene.control.skin.resources.ControlResources.*;
  */
 public abstract class TextInputControlSkin<T extends TextInputControl, B extends TextInputControlBehavior<T>> extends SkinBase<T, B> {
 
-    private static final boolean macOS = com.sun.javafx.PlatformUtil.isMac();
+    private static final boolean macOS = PlatformUtil.isMac();
     /**
      * The font to use with this control. In 1.3 and prior we had a font property
      * on the TextInputControl itself, however now we just do it via CSS
@@ -228,31 +230,23 @@ public abstract class TextInputControlSkin<T extends TextInputControl, B extends
      */
     protected final Path caretPath = new Path();
 
-    static boolean useVK = false;
-    static int vkType = -1;
-    static double winWidth = 640;
-    public void toggleUseVK() {
-        Window window = getScene().getWindow();
-        if (winWidth == 640) {
-            window.setWidth(640);
-            window.setHeight(480);
-        } else {
-            window.setWidth(480);
-            window.setHeight(640);
-        }
+    private static boolean useFXVK = PlatformUtil.isEmbedded();
 
+    /* For testing only */
+    static int vkType = -1;
+    public void toggleUseVK() {
         vkType++;
         if (vkType < 4) {
-            useVK = true;
-            getSkinnable().setImpl_virtualKeyboardType(vkType);
+            useFXVK = true;
+            getSkinnable().getProperties().put(FXVK.VK_TYPE_PROP_KEY, FXVK.VK_TYPE_NAMES[vkType]);
             FXVK.attach(getSkinnable());
         } else {
             FXVK.detach();
             vkType = -1;
-            useVK = false;
-            winWidth = (winWidth == 640) ? 480 : 640;
+            useFXVK = false;
         }
     }
+
 
     public TextInputControlSkin(final T textInput, final B behavior) {
         super(textInput, behavior);
@@ -292,21 +286,36 @@ public abstract class TextInputControlSkin<T extends TextInputControl, B extends
             }
         };
 
-        textInput.focusedProperty().addListener(new InvalidationListener() {
-            @Override public void invalidated(Observable observable) {
-                if (useVK) {
-                    Platform.runLater(new Runnable() {
-                        public void run() {
-                            if (textInput.isFocused()) {
-                                FXVK.attach(textInput);
-                            } else if (!(getScene().getFocusOwner() instanceof TextInputControl)) {
-                                FXVK.detach();
+        if (PlatformUtil.isEmbedded()) {
+            textInput.focusedProperty().addListener(new InvalidationListener() {
+                @Override public void invalidated(Observable observable) {
+                    if (useFXVK) {
+                        Platform.runLater(new Runnable() {
+                            public void run() {
+                                if (textInput.isFocused()) {
+                                    FXVK.attach(textInput);
+                                } else if (!(getScene().getFocusOwner() instanceof TextInputControl)) {
+                                    FXVK.detach();
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
+            });
+
+            if (textInput.getOnTouchStationary() == null) {
+                textInput.setOnTouchStationary(new EventHandler<TouchEvent>() {
+                    @Override public void handle(TouchEvent event) {
+                        ContextMenu menu = textInput.getContextMenu();
+                        if (menu != null &&
+                            showContextMenu(menu, event.getTouchPoint().getScreenX(),
+                                            event.getTouchPoint().getScreenY(), false)) {
+                            event.consume();
+                        }
+                    }
+                });
             }
-        });
+        }
 
         if (textInput.getContextMenu() == null) {
             class ContextMenuItem extends MenuItem {
