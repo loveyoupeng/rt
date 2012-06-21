@@ -110,6 +110,7 @@ import javafx.beans.property.ReadOnlyDoubleProperty;
 import javafx.beans.property.ReadOnlyDoubleWrapper;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.geometry.Bounds;
 import javafx.geometry.Orientation;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.GestureEvent;
@@ -343,11 +344,8 @@ public class Scene implements EventTarget {
          * mouse event code (picking) or the synchronizer, or if the scene is
          * not yet initialized,
          *
-         * @treatAsPrivate implementation detail
-         * @deprecated This is an internal API that is not intended for use and will be removed in the next version
          */
-        @Deprecated
-        public static boolean impl_isPGAccessAllowed() {
+        static boolean isPGAccessAllowed() {
             return inSynchronizer || inMousePick || allowPGAccess;
         }
 
@@ -884,7 +882,7 @@ public class Scene implements EventTarget {
             new AbstractNotifyListener() {
 
         @Override public void invalidated(Observable valueModel) {
-            if (getCamera().impl_isDirty()) {
+            if (getCamera().isDirty()) {
                 markDirty(DirtyBits.CAMERA_DIRTY);
             }
         }
@@ -977,7 +975,7 @@ public class Scene implements EventTarget {
                         throw new IllegalArgumentException(_value +
                                 "is already inside a scene-graph and cannot be set as root");
                     }
-                    if (_value.impl_getClipParent() != null) {
+                    if (_value.getClipParent() != null) {
                         if (isBound()) forceUnbind();
                         throw new IllegalArgumentException(_value +
                                 "is set as a clip on another node, so cannot be set as root");
@@ -1051,7 +1049,10 @@ public class Scene implements EventTarget {
      */
     @Deprecated
     public Object renderToImage(Object platformImage, float scale) {
-        Toolkit.getToolkit().checkFxUserThread();
+        if (!paused) {
+            Toolkit.getToolkit().checkFxUserThread();
+        }
+
         // NOTE: that we no longer use the passed in platform image. Since this
         // API is deprecated and will be removed in 3.0 this is not a concern.
         // Also, we used to return a TK image loader and now we return
@@ -1116,7 +1117,7 @@ public class Scene implements EventTarget {
 
         impl_setAllowPGAccess(true);
         context.x = xMin;
-        context.y = xMin;
+        context.y = yMin;
         context.width = width;
         context.height = height;
         context.transform = transform;
@@ -1124,7 +1125,7 @@ public class Scene implements EventTarget {
         context.root = root.impl_getPGNode();
         context.platformPaint = fill == null ? null : tk.getPaint(fill);
         if (camera != null) {
-            camera.impl_update();
+            camera.update();
             context.camera = camera.getPlatformCamera();
         } else {
             context.camera = null;
@@ -1234,7 +1235,10 @@ public class Scene implements EventTarget {
      * @return the rendered image
      */
     public WritableImage snapshot(WritableImage image) {
-        Toolkit.getToolkit().checkFxUserThread();
+        if (!paused) {
+            Toolkit.getToolkit().checkFxUserThread();
+        }
+
         return  doSnapshot(image, 1.0f);
     }
 
@@ -1251,7 +1255,7 @@ public class Scene implements EventTarget {
      * @param callback a class whose call method will be called when the image
      * is ready. The SnapshotResult that is passed into the call method of
      * the callback will contain the rendered image and the source scene
-     * that was rendered.
+     * that was rendered. The callback parameter must not be null.
      *
      * @param image the writable image that will be used to hold the rendered scene.
      * It may be null in which case a new WritableImage will be constructed.
@@ -1262,9 +1266,14 @@ public class Scene implements EventTarget {
      *
      * @throws IllegalStateException if this method is called on a thread
      *     other than the JavaFX Application Thread.
+     *
+     * @throws NullPointerException if the callback parameter is null.
      */
     public void snapshot(Callback<SnapshotResult, Void> callback, WritableImage image) {
         Toolkit.getToolkit().checkFxUserThread();
+        if (callback == null) {
+            throw new NullPointerException("The callback must not be null");
+        }
 
         final Callback<SnapshotResult, Void> theCallback = callback;
         final WritableImage theImage = image;
@@ -1356,16 +1365,6 @@ public class Scene implements EventTarget {
      * @return the list of stylesheets to use with this scene
      */
     public final ObservableList<String> getStylesheets() { return stylesheets; }
-
-    /**
-     * Invalidate all css styles in the scene, this will cause all css to be reapplied
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_invalidateCSS() {
-        getRoot().impl_reapplyCSS();
-    }
 
     /**
      * Retrieves the depth buffer attribute for this scene.
@@ -1530,7 +1529,25 @@ public class Scene implements EventTarget {
         if (!isKeyboardTrigger) Scene.inMousePick = true;
         if (isKeyboardTrigger) {
             Node sceneFocusOwner = getFocusOwner();
-            eventTarget = sceneFocusOwner != null ? sceneFocusOwner : Scene.this;
+
+            // for keyboard triggers set coordinates inside focus owner
+            final double xOffset = xAbs - x2;
+            final double yOffset = yAbs - y2;
+            if (sceneFocusOwner != null) {
+                final Bounds bounds = sceneFocusOwner.localToScene(
+                        sceneFocusOwner.getBoundsInLocal());
+                x2 = bounds.getMinX() + bounds.getWidth() / 4;
+                y2 = bounds.getMinY() + bounds.getHeight() / 2;
+                eventTarget = sceneFocusOwner;
+            } else {
+                x2 = Scene.this.getWidth() / 4;
+                y2 = Scene.this.getWidth() / 2;
+                eventTarget = Scene.this;
+            }
+
+            xAbs = x2 + xOffset;
+            yAbs = y2 + yOffset;
+            
         } else {
             eventTarget = pick(x2, y2);
         }
@@ -1628,6 +1645,10 @@ public class Scene implements EventTarget {
                     case STATIONARY:
                         type = TouchEvent.TOUCH_STATIONARY;
                         break;
+                }
+
+                for (TouchPoint t : touchPoints) {
+                    t.impl_reset();
                 }
 
                 TouchEvent te = TouchEvent.impl_touchEvent(type, tp, touchList,
@@ -1841,12 +1862,6 @@ public class Scene implements EventTarget {
             }
         }
 
-        // inform key listeners
-        int cnt = keyListeners.size();
-        for (int i = 0; i < cnt; i++) {
-            ((EventHandler<KeyEvent>)keyListeners.get(i)).handle(e);
-        }
-
         getKeyHandler().process(e);
 
         // our little secret...
@@ -1864,31 +1879,6 @@ public class Scene implements EventTarget {
                 //System.out.println("exception instantiating ScenicView:"+ex);
 
             }
-        }
-    }
-
-    private final ObservableList<EventHandler<KeyEvent>> keyListeners =
-            FXCollections.<EventHandler<KeyEvent>>observableArrayList();
-
-    /**
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_addKeyListener(EventHandler<KeyEvent> listener) {
-        if (!keyListeners.contains(listener)) {
-            keyListeners.add(listener);
-        }
-    }
-
-    /**
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_removeKeyListener(EventHandler<KeyEvent> listener) {
-        if (keyListeners.contains(listener)) {
-            keyListeners.remove(listener);
         }
     }
 
@@ -1948,12 +1938,7 @@ public class Scene implements EventTarget {
         scenePulseListener.focusCleanup();
     }
 
-    /**
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_processInputMethodEvent(InputMethodEvent e) {
+    private void processInputMethodEvent(InputMethodEvent e) {
         Node node = getFocusOwner();
         if (node != null) {
             node.fireEvent(e);
@@ -2130,7 +2115,7 @@ public class Scene implements EventTarget {
             // new camera was set on the scene
             if (isDirty(DirtyBits.CAMERA_DIRTY)) {
                 if (getCamera() != null) {
-                    getCamera().impl_update();
+                    getCamera().update();
                     impl_peer.setCamera(getCamera().getPlatformCamera());
                     pickingCamera = getCamera();
                 } else {
@@ -2248,7 +2233,7 @@ public class Scene implements EventTarget {
 
         @Override
         public void inputMethodEvent(Object event) {
-            Scene.this.impl_processInputMethodEvent(Toolkit.getToolkit().convertInputMethodEventToFX(event));
+            Scene.this.processInputMethodEvent(Toolkit.getToolkit().convertInputMethodEventToFX(event));
         }
 
         public void menuEvent(double x, double y, double xAbs, double yAbs,
@@ -2446,7 +2431,8 @@ public class Scene implements EventTarget {
                 throw new RuntimeException("Too many touch points reported");
             }
 
-            touchPoints[order] = new TouchPoint(id, state, x, y, xAbs, yAbs);
+            touchPoints[order] = TouchPoint.impl_touchPoint(id, state,
+                    x, y, xAbs, yAbs);
         }
 
         @Override
@@ -3418,8 +3404,8 @@ public class Scene implements EventTarget {
         public void updateCursorFrame() {
             final CursorFrame newCursorFrame =
                     (currCursor != null)
-                           ? currCursor.impl_getCurrentFrame()
-                           : Cursor.DEFAULT.impl_getCurrentFrame();
+                           ? currCursor.getCurrentFrame()
+                           : Cursor.DEFAULT.getCurrentFrame();
             if (currCursorFrame != newCursorFrame) {
                 if (Scene.this.impl_peer != null) {
                     Scene.this.impl_peer.setCursor(newCursorFrame);
@@ -3499,14 +3485,9 @@ public class Scene implements EventTarget {
             setFocusOwner(node);
 
             if (getFocusOwner() != null) {
-                getFocusOwner().impl_requestFocusImpl(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (impl_peer != null) {
-                            impl_peer.requestFocus();
-                        }
-                    }
-                });
+                if (impl_peer != null) {
+                    impl_peer.requestFocus();
+                }
             }
         }
     }
@@ -5218,7 +5199,7 @@ public class Scene implements EventTarget {
      * moment (it's called outside of {@code DRAG_DETECTED} event handling).
      */
     public Dragboard startDragAndDrop(TransferMode... transferModes) {
-        return impl_startDragAndDrop(this, transferModes);
+        return startDragAndDrop(this, transferModes);
     }
 
     /**
@@ -5234,16 +5215,11 @@ public class Scene implements EventTarget {
      * {@code DRAG_DETECTED} event handling).
      */
     public void startFullDrag() {
-        impl_startFullDrag(this);
+        startFullDrag(this);
     }
 
 
-    /**
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public Dragboard impl_startDragAndDrop(EventTarget source,
+    Dragboard startDragAndDrop(EventTarget source,
             TransferMode... transferModes) {
 
         if (dndGesture.dragDetected != DragDetectedState.PROCESSING) {
@@ -5263,12 +5239,7 @@ public class Scene implements EventTarget {
                 + "mouse button is not pressed");
     }
 
-    /**
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public void impl_startFullDrag(EventTarget source) {
+    void startFullDrag(EventTarget source) {
 
         if (dndGesture.dragDetected != DragDetectedState.PROCESSING) {
             throw new IllegalStateException("Cannot start full drag " +

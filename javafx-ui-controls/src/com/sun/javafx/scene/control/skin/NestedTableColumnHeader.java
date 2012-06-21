@@ -51,7 +51,7 @@ import javafx.scene.shape.Rectangle;
  * TableHeaderRow class consists of just one instance of a NestedTableColumnHeader.
  *
  */
-class NestedTableColumnHeader extends TableColumnHeader {
+public class NestedTableColumnHeader extends TableColumnHeader {
     
     /***************************************************************************
      *                                                                         *
@@ -59,21 +59,20 @@ class NestedTableColumnHeader extends TableColumnHeader {
      *                                                                         *
      **************************************************************************/
     
-    public NestedTableColumnHeader(TableView table, TableColumn tc) {
+    NestedTableColumnHeader(TableView table, TableColumn tc) {
         super(table, tc);
 
         getStyleClass().setAll("nested-column-header");
         setFocusTraversable(false);
 
         initUI();
-
+        
         // watching for changes to the view columns in either table or tableColumn.
         if (getTableColumn() == null && getTableView() != null) {
             setColumns(getTableView().getColumns());
         } else if (getTableColumn() != null) {
             setColumns(getTableColumn().getColumns());
         }
-        getColumns().addListener(weakColumnsListener);
     }
     
     
@@ -136,9 +135,17 @@ class NestedTableColumnHeader extends TableColumnHeader {
      * It does NOT include ANY of the children of these columns, if any exist.
      */
     private ObservableList<? extends TableColumn> columns;
-    public ObservableList<? extends TableColumn> getColumns() { return columns; }
-    public void setColumns(ObservableList<? extends TableColumn> newColumns) {
+    ObservableList<? extends TableColumn> getColumns() { return columns; }
+    void setColumns(ObservableList<? extends TableColumn> newColumns) {
+        if (this.columns != null) {
+            this.columns.removeListener(weakColumnsListener);
+        }
+        
         this.columns = newColumns;  
+        
+        if (this.columns != null) {
+            this.columns.addListener(weakColumnsListener);
+        }
         
         // update the column headers....
         
@@ -151,13 +158,25 @@ class NestedTableColumnHeader extends TableColumnHeader {
         // clear the column headers list before we recreate them
         getColumnHeaders().clear();
         
-        // then iterate through all columns.
-        for (int i = 0; i < getColumns().size(); i++) {
-            TableColumn<?,?> column = getColumns().get(i);
-            
-            if (column == null) continue;
-            
-            getColumnHeaders().add(createColumnHeader(column));
+        // then iterate through all columns, unless we've got no child columns
+        // any longer, in which case we should switch to a TableColumnHeader 
+        // instead
+        if (getColumns().isEmpty()) {
+            // switch out to be a TableColumn instead
+            NestedTableColumnHeader parentHeader = getParentHeader();
+            if (parentHeader != null) {
+                TableColumnHeader newHeader = createColumnHeader(getTableColumn());
+                int index = parentHeader.getColumnHeaders().indexOf(this);
+                parentHeader.getColumnHeaders().set(index, newHeader);
+            }
+        } else {
+            for (int i = 0; i < getColumns().size(); i++) {
+                TableColumn<?,?> column = getColumns().get(i);
+
+                if (column == null) continue;
+
+                getColumnHeaders().add(createColumnHeader(column));
+            }
         }
 
         // update the content
@@ -370,7 +389,7 @@ class NestedTableColumnHeader extends TableColumnHeader {
     /* **************************/
 
     @Override protected void layoutChildren() {
-        double w = snapSize(getWidth()) - snapSpace(getInsets().getLeft()) - snapSpace(getInsets().getRight());
+        double w = getWidth() - getInsets().getLeft() - getInsets().getRight();
         double h = getHeight() - getInsets().getTop() - getInsets().getBottom();
         
         int labelHeight = (int) label.prefHeight(-1);
@@ -387,7 +406,7 @@ class NestedTableColumnHeader extends TableColumnHeader {
         for (TableColumnHeader n : getColumnHeaders()) {
             if (! n.isVisible()) continue;
             
-            double prefWidth = snapSize(n.prefWidth(-1));
+            double prefWidth = n.prefWidth(-1);
 //            double prefHeight = n.prefHeight(-1);
 
             // position the column header in the default location...
@@ -450,7 +469,7 @@ class NestedTableColumnHeader extends TableColumnHeader {
 
         newCol.setTableHeaderRow(getTableHeaderRow());
         newCol.setParentHeader(this);
-
+        
         return newCol;
     }
 }

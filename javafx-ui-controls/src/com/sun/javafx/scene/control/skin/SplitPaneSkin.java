@@ -357,7 +357,7 @@ public class SplitPaneSkin extends SkinBase<SplitPane, BehaviorBase<SplitPane>> 
                     c.setAvailable(c.getArea() - min);
                     size -= portion;
                 }
-                if (size == 0) {
+                if ((int)size == 0) {
                     return size;
                 }
             }
@@ -402,7 +402,7 @@ public class SplitPaneSkin extends SkinBase<SplitPane, BehaviorBase<SplitPane>> 
                     c.setAvailable(c.getAvailable() - portion);
                     size -= portion;
                 }
-                if (size == 0) {
+                if ((int)size == 0) {
                     return size;
                 }
             }
@@ -490,7 +490,7 @@ public class SplitPaneSkin extends SkinBase<SplitPane, BehaviorBase<SplitPane>> 
     private boolean resize = false;
 
     @Override protected void layoutChildren() {
-        if (!getSkinnable().isVisible()) {
+        if (!getSkinnable().isVisible() || (horizontal ? getWidth() == 0 : getHeight() == 0)) {
             return;
         }
 
@@ -1102,11 +1102,11 @@ public class SplitPaneSkin extends SkinBase<SplitPane, BehaviorBase<SplitPane>> 
         }
 
         @Override protected double computeMaxWidth(double height) {
-            return content.maxWidth(height);
+            return snapSize(content.maxWidth(height));
         }
 
         @Override protected double computeMaxHeight(double width) {
-            return content.maxHeight(width);
+            return snapSize(content.maxHeight(width));
         }
     }
 }

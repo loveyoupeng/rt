@@ -58,7 +58,7 @@ import javafx.beans.property.BooleanPropertyBase;
 /**
  * Region responsible for painting the entire row of column headers.
  */
-class TableHeaderRow extends StackPane {
+public class TableHeaderRow extends StackPane {
     
     private static final String MENU_SEPARATOR = 
             ControlResources.getString("TableView.nestedColumnControlMenuSeparator");
@@ -157,6 +157,10 @@ class TableHeaderRow extends StackPane {
      * at that level.
      */
     private final NestedTableColumnHeader header;
+    
+    public NestedTableColumnHeader getRootHeader() {
+        return header;
+    }
 
     private Region filler;
 
@@ -207,7 +211,6 @@ class TableHeaderRow extends StackPane {
 
         updateTableWidth();
         table.widthProperty().addListener(weakTableWidthListener);
-        table.getVisibleLeafColumns().addListener(weakVisibleLeafColumnsListener);
 
         // --- popup menu for hiding/showing columns
         columnPopupMenu = new ContextMenu();
@@ -287,18 +290,9 @@ class TableHeaderRow extends StackPane {
      *                                                                         *
      **************************************************************************/    
     
-    private boolean headerDirty = false;
-    
     private InvalidationListener tableWidthListener = new InvalidationListener() {
         @Override public void invalidated(Observable valueModel) {
             updateTableWidth();
-        }
-    };
-    
-    private ListChangeListener visibleLeafColumnsListener = new ListChangeListener<TableColumn<?,?>>() {
-        @Override public void onChanged(Change<? extends TableColumn<?,?>> c) {
-            headerDirty = true;
-            requestLayout();
         }
     };
     
@@ -312,9 +306,6 @@ class TableHeaderRow extends StackPane {
     
     private final WeakInvalidationListener weakTableWidthListener = 
             new WeakInvalidationListener(tableWidthListener);
-    
-    private final WeakListChangeListener weakVisibleLeafColumnsListener =
-            new WeakListChangeListener(visibleLeafColumnsListener);
     
     private final WeakListChangeListener weakTableColumnsListener =
             new WeakListChangeListener(tableColumnsListener);
@@ -385,11 +376,6 @@ class TableHeaderRow extends StackPane {
     }
 
     @Override protected void layoutChildren() {
-        if (headerDirty) {
-            header.setColumns(table.getColumns());
-            headerDirty = false;
-        }
-        
         double x = scrollX;
         double headerWidth = snapSize(header.prefWidth(-1));
         double prefHeight = getHeight() - getInsets().getTop() - getInsets().getBottom();

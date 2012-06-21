@@ -4,6 +4,8 @@
 
 package javafx.scene.control;
 
+import com.sun.javafx.pgstub.StubToolkit;
+import com.sun.javafx.tk.Toolkit;
 import static javafx.scene.control.ControlTestUtils.*;
 import static org.junit.Assert.*;
 
@@ -13,7 +15,14 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 import org.junit.Before;
 import org.junit.Ignore;
@@ -25,10 +34,26 @@ import org.junit.Test;
  */
 public class ButtonTest {
     private Button btn;
+    private Toolkit tk;
+    private Scene scene;
+    private Stage stage;
+    private StackPane root;      
     
     @Before public void setup() {
         btn = new Button();
+        tk = (StubToolkit)Toolkit.getToolkit();//This step is not needed (Just to make sure StubToolkit is loaded into VM)
+        root = new StackPane();
+        scene = new Scene(root);
+        stage = new Stage();
+        stage.setScene(scene);         
     }
+    
+    /*********************************************************************
+     * Helper methods                                                    *
+     ********************************************************************/
+    private void show() {
+        stage.show();
+    }   
     
     /*********************************************************************
      * Tests for the constructors                                        *
@@ -146,7 +171,46 @@ public class ButtonTest {
     @Test public void defaultButtonPropertyHasName() {
         assertEquals("defaultButton", btn.defaultButtonProperty().getName());
     }
+    
+    @Test public void disabledDefaultButtonCannotGetInvoked_RT20929() {
+        root.getChildren().add(btn);        
+        
+        btn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                fail();
+            }
+        });
+        
+        btn.setDefaultButton(true);
+        btn.setDisable(true);
+        show();
+        
+        KeyEventFirer keyboard = new KeyEventFirer(btn);        
+        keyboard.doKeyPress(KeyCode.ENTER);
+   
+        tk.firePulse();                
+    }
 
+    @Test public void defaultButtonCanBeInvokeAfterRemovingFromTheScene_RT22106() {
+        btn.setDefaultButton(true);        
+        btn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                fail();
+            }
+        });
+        root.getChildren().add(btn);
+        show();
+        
+        root.getChildren().remove(btn);        
+        
+        KeyEventFirer keyboard = new KeyEventFirer(root);        
+        keyboard.doKeyPress(KeyCode.ENTER);
+
+        tk.firePulse();                      
+    }
+    
     /*********************************************************************
      * Tests for the cancelButton state                                 *
      ********************************************************************/
@@ -216,6 +280,69 @@ public class ButtonTest {
         assertEquals("cancelButton", btn.cancelButtonProperty().getName());
     }
 
+    @Test public void cancelButtonCanBeInvokeAfterRemovingFromTheScene_RT22106() {
+        btn.setCancelButton(true);        
+        btn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                fail();
+            }
+        });
+        root.getChildren().add(btn);
+        show();
+        
+        root.getChildren().remove(btn);        
+        
+        KeyEventFirer keyboard = new KeyEventFirer(root);        
+        keyboard.doKeyPress(KeyCode.ESCAPE);
+
+        tk.firePulse();                      
+    }
+
+
+    @Test public void conextMenuShouldntShowOnAction() {
+        final MouseEventGenerator generator = new MouseEventGenerator();
+
+        ContextMenu popupMenu = new ContextMenu();
+        MenuItem item1 = new MenuItem("_About");
+        popupMenu.getItems().add(item1);
+        popupMenu.setOnShown(new EventHandler<WindowEvent>() {
+            @Override public void handle(WindowEvent w) {
+                fail();
+            }
+        });
+
+        btn.setContextMenu(popupMenu);
+        btn.setDefaultButton(true);
+
+        root.getChildren().add(btn);
+        show();
+
+        double xval = (btn.localToScene(btn.getLayoutBounds())).getMinX();
+        double yval = (btn.localToScene(btn.getLayoutBounds())).getMinY();
+
+
+        /*
+        ** none of these should cause the context menu to appear,
+        ** so fire them all, and see if anything happens.
+        */
+        KeyEventFirer keyboard = new KeyEventFirer(btn);        
+        keyboard.doKeyPress(KeyCode.ENTER);
+
+        btn.fireEvent(new ActionEvent());
+        btn.fire();
+        scene.impl_processMouseEvent(
+            generator.generateMouseEvent(MouseEvent.MOUSE_PRESSED, xval+10, yval+10));
+        scene.impl_processMouseEvent(
+            generator.generateMouseEvent(MouseEvent.MOUSE_RELEASED, xval+10, yval+10));
+        scene.impl_processMouseEvent(
+            generator.generateMouseEvent(MouseEvent.MOUSE_CLICKED, xval+10, yval+10));
+       
+        tk.firePulse();                      
+    }
+
+
+    
 //  private Button button1;
 //  private Button button2;
 //

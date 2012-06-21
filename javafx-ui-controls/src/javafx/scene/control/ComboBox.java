@@ -74,7 +74,20 @@ import javafx.util.StringConverter;
  * <p>As the ComboBox internally renders content with a ListView, API exists in
  * the ComboBox class to allow for a custom cell factory to be set. For more
  * information on cell factories, refer to the {@link Cell} and {@link ListCell}
- * classes.
+ * classes. It is important to note that if a cell factory is set on a ComboBox,
+ * cells will only be used in the ListView that shows when the ComboBox is 
+ * clicked. If you also want to customize the rendering of the 'button' area
+ * of the ComboBox, you can set a custom {@link ListCell} instance in the 
+ * {@link #buttonCellProperty() button cell} property. One way of doing this
+ * is with the following code (note the use of {@code setButtonCell}:
+ * 
+ * <pre>
+ * {@code
+ * Callback<ListView<String>, ListCell<String>> cellFactory = ...;
+ * ComboBox comboBox = new ComboBox();
+ * comboBox.setItems(items);
+ * comboBox.setButtonCell(cellFactory.call(null));
+ * comboBox.setCellFactory(cellFactory);}</pre>
  * 
  * <p>Because a ComboBox can be {@link #editableProperty() editable}, and the
  * default means of allowing user input is via a {@link TextField}, a 
@@ -230,10 +243,6 @@ public class ComboBox<T> extends ComboBoxBase<T> {
             @Override public void invalidated(Observable o) {
                 // when editable changes, we reset the selection / value states
                 getSelectionModel().clearSelection();
-                
-                // we also change the editor property so that it is null when
-                // editable is false, and non-null when it is true.
-                updateEditor();
             }
         });
     }
@@ -345,6 +354,7 @@ public class ComboBox<T> extends ComboBoxBase<T> {
     
     
     // --- Editor
+    private FocusableTextField textField;
     /**
      * The editor for the ComboBox. The editor is null if the ComboBox is not
      * {@link #editableProperty() editable}.
@@ -354,8 +364,12 @@ public class ComboBox<T> extends ComboBoxBase<T> {
         return editorProperty().get(); 
     }
     public final ReadOnlyObjectProperty<TextField> editorProperty() { 
-        if (editor == null || (editor.get() == null && isEditable())) {
-            updateEditor();
+        if (editor == null) {
+            editor = new ReadOnlyObjectWrapper<TextField>(this, "editor");
+            textField = new FocusableTextField();
+            textField.promptTextProperty().bindBidirectional(promptTextProperty());
+            textField.tooltipProperty().bind(tooltipProperty());
+            editor.set(textField);
         }
         return editor.getReadOnlyProperty(); 
     }
@@ -386,23 +400,8 @@ public class ComboBox<T> extends ComboBoxBase<T> {
      *                                                                         *
      **************************************************************************/        
 
-    private FocusableTextField textField;
     
-    private void updateEditor() {
-        if (editor == null) {
-            editor = new ReadOnlyObjectWrapper<TextField>(this, "editor");
-        }
-        
-        if (isEditable()) {
-            textField = new FocusableTextField();
-            textField.promptTextProperty().bindBidirectional(promptTextProperty());
-            textField.tooltipProperty().bind(tooltipProperty());
-            editor.set(textField);
-        } else {
-            textField = null;
-            editor.set(null);
-        }
-    }
+    
 
     
     

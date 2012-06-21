@@ -828,12 +828,12 @@ public class GridPane extends Pane {
             while (c.next()) {
                 for (RowConstraints constraints : c.getRemoved()) {
                     if (constraints != null && !rowConstraints.contains(constraints)) {
-                        constraints.impl_remove(GridPane.this);
+                        constraints.remove(GridPane.this);
                     }
                 }
                 for (RowConstraints constraints : c.getAddedSubList()) {
                     if (constraints != null) {
-                        constraints.impl_add(GridPane.this);
+                        constraints.add(GridPane.this);
                     }
                 }
             }
@@ -858,12 +858,12 @@ public class GridPane extends Pane {
             while(c.next()) {
                 for (ColumnConstraints constraints : c.getRemoved()) {
                     if (constraints != null && !columnConstraints.contains(constraints)) {
-                        constraints.impl_remove(GridPane.this);
+                        constraints.remove(GridPane.this);
                     }
                 }
                 for (ColumnConstraints constraints : c.getAddedSubList()) {
                     if (constraints != null) {
-                        constraints.impl_add(GridPane.this);
+                        constraints.add(GridPane.this);
                     }
                 }
             }
@@ -1247,10 +1247,17 @@ public class GridPane extends Pane {
 
             }
             if (rowMinHeight[i] == USE_PREF_SIZE) {
-                rowMinHeight[i] = rowPrefHeight[i];
+                //RT-20573 Use the bounded size if the pref has not been set
+                rowMinHeight[i] = rowPrefHeight[i] == 0 ?
+                        boundedSize(rowPrefHeight[i], rowMinHeight[i], rowMaxHeight[i]) == USE_PREF_SIZE ?
+                            0 : boundedSize(rowPrefHeight[i], rowMinHeight[i], rowMaxHeight[i]) :
+                        rowPrefHeight[i];
             }
             if (rowMaxHeight[i] == USE_PREF_SIZE) {
-                rowMaxHeight[i] = rowPrefHeight[i];
+                rowMaxHeight[i] = rowPrefHeight[i] == 0 ?
+                        boundedSize(rowPrefHeight[i], rowMinHeight[i], rowMaxHeight[i]) == USE_PREF_SIZE ?
+                            0 : boundedSize(rowPrefHeight[i], rowMinHeight[i], rowMaxHeight[i]) :
+                        rowPrefHeight[i];
             }
             rowPrefHeight[i] = boundedSize(rowPrefHeight[i], rowMinHeight[i], rowMaxHeight[i]);
             //System.out.println("row "+i+": h="+rowHeights[i]+" percent="+rowPercentHeight[i]+" min="+rowMinHeight[i]+" pref="+rowPrefHeight[i]+" max="+rowMaxHeight[i]+" grow="+rowGrow[i]);
@@ -1309,7 +1316,7 @@ public class GridPane extends Pane {
                     columnPercentWidth[i] = constraints.getPercentWidth();
                     computeGrow = false;
                 } else {
-                    double w = constraints.getPrefWidth();
+                    double w = constraints.getPrefWidth();          
                     if (w != USE_COMPUTED_SIZE) {
                         columnPrefWidth[i] = w;
                         computePref = false;
@@ -1332,7 +1339,7 @@ public class GridPane extends Pane {
             }
 
             if (computeMin || computeMax || computePref || computeGrow) {
-                // compute from content
+                // compute from content                
                 for (int j = 0; j < endNodes.size(); j++) {
                     Node child = endNodes.get(j);
                     Insets margin = getMargin(child);
@@ -1384,12 +1391,19 @@ public class GridPane extends Pane {
             }
 
             if (columnMinWidth[i] == USE_PREF_SIZE) {
-                columnMinWidth[i] = columnPrefWidth[i];
+                //RT-20573 Use the bounded size if the pref has not been set
+                columnMinWidth[i] = columnPrefWidth[i] == 0 ? 
+                    boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]) == USE_PREF_SIZE ? 
+                        0 : boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]) : 
+                    columnPrefWidth[i];
             }
             if (columnMaxWidth[i] == USE_PREF_SIZE) {
-                columnMaxWidth[i] = columnPrefWidth[i];
-            }
-            columnPrefWidth[i] = boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]);
+                columnMaxWidth[i] = columnPrefWidth[i] == 0 ? 
+                    boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]) == USE_PREF_SIZE ? 
+                        0 : boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]) : 
+                    columnPrefWidth[i];
+            }                        
+            columnPrefWidth[i] = boundedSize(columnPrefWidth[i], columnMinWidth[i], columnMaxWidth[i]);            
             //System.out.println("column "+i+": h="+columnWidths[i]+" percent="+columnPercentWidth[i]+" min="+columnMinWidth[i]+" pref="+columnPrefWidth[i]+" max="+columnMaxWidth[i]+" grow="+columnGrow[i]);
         }
         // if percentages sum is bigger than 100, treat them as weights
@@ -1461,7 +1475,7 @@ public class GridPane extends Pane {
         double rowTotal = 0;
         computeGridMetrics();
 
-        Orientation contentBias = getContentBias();
+        Orientation contentBias = getContentBias();        
         if (contentBias == null) {
             rowTotal = adjustRowHeights(rowPrefHeight, height);
             columnTotal = adjustColumnWidths(columnPrefWidth, width);
@@ -1575,27 +1589,47 @@ public class GridPane extends Pane {
         }
 
         double available = extraHeight; // will be negative in shrinking case
-        while (Math.abs(available) > 1.0 && adjusting.size() > 0) {
-            final double portion = available / adjusting.size(); // negative in shrinking case
-            for (int i = 0; i < adjusting.size(); i++) {
-                final int index = adjusting.get(i);
-                final double limit = (shrinking? rowMinHeight[index] : rowMaxHeight[index])
-                        - rowHeights[index]; // negative in shrinking case
-                final double change = Math.abs(limit) <= Math.abs(portion)? limit : portion;
-                //System.out.println("row "+index+": height="+rowHeights[index]+" extra="+extraHeight+"portion="+portion+" row mpm="+rowMinHeight[index]+"/"+rowPrefHeight[index]+"/"+rowMaxHeight[index]+" limit="+limit+" change="+change);
-                rowHeights[index] += change;
-                available -= change;
-                if (Math.abs(change) < Math.abs(portion)) {
-                    adjusted.add(index);
+        boolean handleRemainder = false;
+        int portion = 0;
+        while (available != 0 && adjusting.size() > 0) {
+            if (!handleRemainder) {
+                portion = (int)available / adjusting.size(); // negative in shrinking case
+            }
+            if (portion != 0) {
+                for (int i = 0; i < adjusting.size(); i++) {
+                    final int index = adjusting.get(i);
+                    final double limit = (shrinking? rowMinHeight[index] : rowMaxHeight[index])
+                            - rowHeights[index]; // negative in shrinking case
+                    final double change = Math.abs(limit) <= Math.abs(portion)? limit : portion;
+                    //System.out.println("row "+index+": height="+rowHeights[index]+" extra="+extraHeight+"portion="+portion+" row mpm="+rowMinHeight[index]+"/"+rowPrefHeight[index]+"/"+rowMaxHeight[index]+" limit="+limit+" change="+change);
+                    rowHeights[index] += change;                
+                    available -= change;
+                    if (Math.abs(change) < Math.abs(portion)) {
+                        adjusted.add(index);
+                    }
+                    if (available == 0) {
+                        break;
+                    }
+                }
+                for (int i = 0; i < adjusted.size(); i++) {
+                    adjusting.remove(adjusted.get(i));
+                }
+                adjusted.clear();
+            } else {
+                // Handle the remainder
+                portion = (int)(available) % adjusting.size();
+                if (portion == 0) {
+                    break;
+                } else {
+                    // We have a remainder evenly distribute it.
+                    portion = shrinking ? -1 : 1;
+                    handleRemainder = true;
                 }
             }
-            for (int i = 0; i < adjusted.size(); i++) {
-                adjusting.remove(adjusted.get(i));
-            }
-            adjusted.clear();
         }
+                        
         for (int i = 0; i < rowHeights.length; i++) {
-            rowHeights[i] = snapSpace(rowHeights[i]);
+            rowHeights[i] = snapSpace(rowHeights[i]);            
         }
         return available; // might be negative in shrinking case
     }
@@ -1648,26 +1682,47 @@ public class GridPane extends Pane {
                 adjusting.add(i);
             }
         }
+        
         double available = extraWidth; // will be negative in shrinking case
-        while (Math.abs(available) > 1.0 && adjusting.size() > 0) {
-            final double portion = available / adjusting.size(); // negative in shrinking case
-            for (int i = 0; i < adjusting.size(); i++) {
-                final int index = adjusting.get(i);
-                final double limit = (shrinking? columnMinWidth[index] : columnMaxWidth[index])
-                        - columnWidths[index]; // negative in shrinking case
-                final double change = Math.abs(limit) <= Math.abs(portion)? limit : portion;
-                columnWidths[index] += change;
-                //if (node.id.startsWith("debug.")) println("{if (shrinking) "vshrink" else "vgrow"}: {node.id} portion({portion})=available({available})/({sizeof adjusting}) change={change}");
-                available -= change;
-                if (Math.abs(change) < Math.abs(portion)) {
-                    adjusted.add(index);
+        boolean handleRemainder = false;
+        int portion = 0;
+        while (available != 0 && adjusting.size() > 0) {            
+            if (!handleRemainder) {
+                portion = (int)available / adjusting.size(); // negative in shrinking case
+            }
+            if (portion != 0) {
+                for (int i = 0; i < adjusting.size(); i++) {
+                    final int index = adjusting.get(i);
+                    final double limit = (shrinking? columnMinWidth[index] : columnMaxWidth[index])
+                            - columnWidths[index]; // negative in shrinking case
+                    final double change = Math.abs(limit) <= Math.abs(portion)? limit : portion;
+                    columnWidths[index] += change;                
+                    //if (node.id.startsWith("debug.")) println("{if (shrinking) "vshrink" else "vgrow"}: {node.id} portion({portion})=available({available})/({sizeof adjusting}) change={change}");
+                    available -= change;
+                    if (Math.abs(change) < Math.abs(portion)) {
+                        adjusted.add(index);
+                    }
+                    if (available == 0) {                        
+                        break;
+                    }                    
+                }
+                for (int i = 0; i < adjusted.size(); i++) {
+                    adjusting.remove(adjusted.get(i));
+                }
+                adjusted.clear();
+            } else {
+                // Handle the remainder
+                portion = (int)(available) % adjusting.size();
+                if (portion == 0) {
+                    break;
+                } else {
+                    // We have a remainder evenly distribute it.
+                    portion = shrinking ? -1 : 1;
+                    handleRemainder = true;
                 }
             }
-            for (int i = 0; i < adjusted.size(); i++) {
-                adjusting.remove(adjusted.get(i));
-            }
-            adjusted.clear();
         }
+               
         for (int i = 0; i < columnWidths.length; i++) {
             columnWidths[i] = snapSpace(columnWidths[i]);
         }

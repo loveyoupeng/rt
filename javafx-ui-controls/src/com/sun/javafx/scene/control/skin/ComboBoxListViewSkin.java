@@ -31,6 +31,7 @@ import com.sun.javafx.scene.control.WeakListChangeListener;
 import javafx.scene.control.ComboBox;
 import com.sun.javafx.scene.control.behavior.ComboBoxListViewBehavior;
 import java.util.List;
+import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.value.ChangeListener;
@@ -57,6 +58,14 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
     // This may one day become a property on the ComboBox itself.
     private static final String COMBO_BOX_ROWS_TO_MEASURE_WIDTH_KEY = "comboBoxRowsToMeasureWidth";
     
+    
+    
+    /***************************************************************************
+     *                                                                         *
+     * Private fields                                                          *
+     *                                                                         *
+     **************************************************************************/    
+    
     private final ComboBox<T> comboBox;
     
     private ListCell<T> buttonCell;
@@ -67,10 +76,41 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
     
     private ObservableList<T> listViewItems;
     
+    private boolean listSelectionLock = false;
+    private boolean listViewSelectionDirty = false;
+    
+    
+    
+    /***************************************************************************
+     *                                                                         *
+     * Listeners                                                               *
+     *                                                                         *
+     **************************************************************************/
+    
+    private boolean itemCountDirty;
+    private final ListChangeListener listViewItemsListener = new ListChangeListener() {
+        @Override public void onChanged(ListChangeListener.Change c) {
+            itemCountDirty = true;
+            requestLayout();
+        }
+    };
+    
+    private final WeakListChangeListener weakListViewItemsListener =
+            new WeakListChangeListener(listViewItemsListener);
+    
+    
+    
+    /***************************************************************************
+     *                                                                         *
+     * Constructors                                                            *
+     *                                                                         *
+     **************************************************************************/   
+    
     public ComboBoxListViewSkin(final ComboBox<T> comboBox) {
         super(comboBox, new ComboBoxListViewBehavior<T>(comboBox));
         this.comboBox = comboBox;
         this.listView = createListView();
+        this.textField = getEditableInputNode();
         
         // Fix for RT-21207. Additional code related to this bug is further below.
         this.listView.setManaged(false);
@@ -85,9 +125,7 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         // move focus in to the textfield if the comboBox is editable
         comboBox.focusedProperty().addListener(new ChangeListener<Boolean>() {
             @Override public void changed(ObservableValue<? extends Boolean> ov, Boolean t, Boolean t1) {
-                if (textField == null) return;
-                if (! (textField instanceof FocusableTextField)) return;
-                ((FocusableTextField)textField).setFakeFocus(comboBox.isFocused());
+                updateFakeFocus(comboBox.isFocused());
             }
         });
         
@@ -117,26 +155,7 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         });
         
         // Fix for RT-19431 (also tested via ComboBoxListViewSkinTest)
-        comboBox.valueProperty().addListener(new ChangeListener<T>() {
-            @Override public void changed(ObservableValue<? extends T> ov, T oldValue, T newValue) {
-                if (newValue == null) {
-                    listView.getSelectionModel().clearSelection();
-                } else {
-                    int index = comboBox.getSelectionModel().getSelectedIndex();
-                    if (index >= 0 && index < comboBox.getItems().size()) {
-                        T itemsObj = comboBox.getItems().get(index);
-                        if (itemsObj != null && itemsObj.equals(newValue)) {
-                            listView.getSelectionModel().select(index);
-                        } else {
-                            listView.getSelectionModel().select(newValue);
-                        }
-                    } else {
-                        // just select the first instance of newValue in the list
-                        listView.getSelectionModel().select(newValue);
-                    }
-                }
-            }
-        });
+        updateValue();
         
         registerChangeListener(comboBox.itemsProperty(), "ITEMS");
         registerChangeListener(comboBox.promptTextProperty(), "PROMPT_TEXT");
@@ -145,36 +164,18 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         registerChangeListener(comboBox.converterProperty(), "CONVERTER");
         registerChangeListener(comboBox.editorProperty(), "EDITOR");
         registerChangeListener(comboBox.buttonCellProperty(), "BUTTON_CELL");
+        registerChangeListener(comboBox.valueProperty(), "VALUE");
     }
     
-    public void updateListViewItems() {
-        if (listViewItems != null) {
-            listViewItems.removeListener(weakListViewItemsListener);
-        }
-
-        this.listViewItems = comboBox.getItems();
-        listView.setItems(null);
-        listView.setItems(listViewItems);
-
-        if (listViewItems != null) {
-            listViewItems.addListener(weakListViewItemsListener);
-        }
-        
-        itemCountDirty = true;
-        requestLayout();
-    }
     
-    private boolean itemCountDirty;
-    private final ListChangeListener listViewItemsListener = new ListChangeListener() {
-        @Override public void onChanged(ListChangeListener.Change c) {
-            itemCountDirty = true;
-            requestLayout();
-        }
-    };
     
-    private final WeakListChangeListener weakListViewItemsListener =
-            new WeakListChangeListener(listViewItemsListener);
+    /***************************************************************************
+     *                                                                         *
+     * Public API                                                              *
+     *                                                                         *
+     **************************************************************************/  
     
+    /** {@inheritDoc} */
     @Override protected void handleControlPropertyChanged(String p) {
         // Fix for RT-21207
         if (p == "SHOWING") {
@@ -203,15 +204,15 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
             getEditableInputNode();
         } else if ("BUTTON_CELL".equals(p)) {
             updateButtonCell();
+        } else if ("VALUE".equals(p)) {
+            updateValue();
         }
     }
     
+    /** {@inheritDoc} */
     @Override public Node getDisplayNode() {
         Node displayNode;
         if (comboBox.isEditable()) {
-            if (textField == null) {
-                textField = getEditableInputNode();
-            }
             displayNode = textField;
         } else {
             displayNode = buttonCell;
@@ -220,6 +221,102 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         updateDisplayNode();
         
         return displayNode;
+    }
+    
+    /**
+     * 
+     */
+    public void updateListViewItems() {
+        if (listViewItems != null) {
+            listViewItems.removeListener(weakListViewItemsListener);
+        }
+
+        this.listViewItems = comboBox.getItems();
+        listView.setItems(null);
+        listView.setItems(listViewItems);
+
+        if (listViewItems != null) {
+            listViewItems.addListener(weakListViewItemsListener);
+        }
+        
+        itemCountDirty = true;
+        requestLayout();
+    }
+    
+    @Override public Node getPopupContent() {
+        return listView;
+    }
+    
+    @Override protected double computePrefWidth(double height) {
+        return listView.prefWidth(height);
+    }
+    
+    @Override protected double computeMinWidth(double height) {
+        return 50;
+    }
+    
+    @Override protected void layoutChildren() {
+        if (listViewSelectionDirty) {
+            try {
+                listSelectionLock = true;
+                T item = comboBox.getSelectionModel().getSelectedItem();
+                listView.getSelectionModel().clearSelection();
+                listView.getSelectionModel().select(item);
+            } finally {
+                listSelectionLock = false;
+                listViewSelectionDirty = false;
+            }
+        }
+        
+        super.layoutChildren();
+    }
+    
+    
+    
+    /***************************************************************************
+     *                                                                         *
+     * Private methods                                                         *
+     *                                                                         *
+     **************************************************************************/    
+    
+    private void updateValue() {
+        T newValue = comboBox.getValue();
+        
+        SelectionModel sm = listView.getSelectionModel();
+        
+        if (newValue == null) {
+            sm.clearSelection();
+        } else {
+            // RT-22386: We need to test to see if the value is in the comboBox
+            // items list. If it isn't, then we should clear the listview 
+            // selection
+            int indexOfNewValue = getIndexOfComboBoxValueInItemsList();
+            if (indexOfNewValue == -1) {
+                listSelectionLock = true;
+                sm.clearSelection();
+                listSelectionLock = false;
+            } else {
+                int index = comboBox.getSelectionModel().getSelectedIndex();
+                if (index >= 0 && index < comboBox.getItems().size()) {
+                    T itemsObj = comboBox.getItems().get(index);
+                    if (itemsObj != null && itemsObj.equals(newValue)) {
+                        sm.select(index);
+                    } else {
+                        sm.select(newValue);
+                    }
+                } else {
+                    // just select the first instance of newValue in the list
+                    int listViewIndex = listView.getItems().indexOf(newValue);
+                    if (listViewIndex == -1) {
+                        // RT-21336 Show the ComboBox value even though it doesn't
+                        // exist in the ComboBox items list (part one of fix)
+                        updateDisplayNode();
+                    } else {
+                        sm.select(listViewIndex);
+                    }
+                }
+            }
+        }
     }
     
     private TextField getEditableInputNode() {
@@ -237,8 +334,19 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         textField.focusedProperty().addListener(new ChangeListener<Boolean>() {
             @Override public void changed(ObservableValue<? extends Boolean> ov, Boolean t, Boolean hasFocus) {
                 if (hasFocus) {
-                    comboBox.requestFocus();
+                    // Using Platform.runLater here, as without it it seems we
+                    // enter into some form of race condition where we are 
+                    // wanting to set focus on the comboBox whilst the textField
+                    // is still notifying of its focus gain.
+                    // This issue was identified in RT-21088.
+                    Platform.runLater(new Runnable() {
+                        @Override public void run() {
+                            comboBox.requestFocus();
+                        }
+                    });
                 }
+                
+                updateFakeFocus(hasFocus);
                 
                 // RT-21454 starts here
                 if (! hasFocus) {
@@ -250,12 +358,18 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         return textField;
     }
     
+    private void updateFakeFocus(boolean b) {
+        if (textField == null) return;
+        if (! (textField instanceof FocusableTextField)) return;
+        ((FocusableTextField)textField).setFakeFocus(b);
+    }
+    
     private void updateDisplayNode() {
         StringConverter<T> c = comboBox.getConverter();
         if (c == null) return;
-                        
+              
+        T value = comboBox.getValue();
         if (comboBox.isEditable()) {
-            T value = comboBox.getValue();
             String stringValue = c.toString(value);
             if (value == null || stringValue == null) {
                 textField.setText("");
@@ -263,9 +377,15 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
                 textField.setText(stringValue);
             }
         } else {
-            int index = getSelectedIndex();
-            buttonCell.updateListView(listView);
-            buttonCell.updateIndex(index);
+            int index = getIndexOfComboBoxValueInItemsList();
+            if (index > -1) {
+                buttonCell.updateListView(listView);
+                buttonCell.updateIndex(index);
+            } else {
+                // RT-21336 Show the ComboBox value even though it doesn't
+                // exist in the ComboBox items list (part two of fix)
+                updateDisplayText(buttonCell, value, false);
+            }
         }
     }
     
@@ -305,7 +425,7 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         comboBox.setValue(value);
     }
     
-    private int getSelectedIndex() {
+    private int getIndexOfComboBoxValueInItemsList() {
         T value = comboBox.getValue();
         int index = comboBox.getItems().indexOf(value);
         return index;
@@ -317,10 +437,6 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         buttonCell.setMouseTransparent(true);
     }
 
-    @Override public Node getPopupContent() {
-        return listView;
-    }
-    
     private void updateCellFactory() {
         Callback<ListView<T>, ListCell<T>> cf = comboBox.getCellFactory();
         cellFactory = cf != null ? cf : getDefaultCellFactory();
@@ -340,10 +456,9 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         };
     }
     
-    private boolean listSelectionLock = false;
-    
     private ListView<T> createListView() {
         final ListView<T> listView = new ListView<T>() {
+            private boolean isFirstSizeCalculation = true;
             
             @Override protected double computeMinHeight(double width) {
                 return 30;
@@ -380,12 +495,14 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
             }
             
             private void doCSSCheck() {
-                if (getSkin() == null) {
+                Parent parent = getPopup().getScene().getRoot();
+                if ((isFirstSizeCalculation || getSkin() == null) && parent.getScene() != null) {
                     // if the skin is null, it means that the css related to the
                     // listview skin hasn't been loaded yet, so we force it here.
                     // This ensures the combobox button is the correct width
                     // when it is first displayed, before the listview is shown.
-                    getPopup().getScene().getRoot().impl_processCSS(true);
+                    parent.impl_processCSS(true);
+                    isFirstSizeCalculation = false;
                 }
             }
         };
@@ -456,30 +573,6 @@ public class ComboBoxListViewSkin<T> extends ComboBoxPopupControl<T> {
         return ph;
     }
 
-    @Override protected double computePrefWidth(double height) {
-        return listView.prefWidth(height);
-    }
-    
-    @Override protected double computeMinWidth(double height) {
-        return 50;
-    }
-    
-    private boolean listViewSelectionDirty = false;
-    @Override protected void layoutChildren() {
-        if (listViewSelectionDirty) {
-            try {
-                listSelectionLock = true;
-                T item = comboBox.getSelectionModel().getSelectedItem();
-                listView.getSelectionModel().clearSelection();
-                listView.getSelectionModel().select(item);
-            } finally {
-                listSelectionLock = false;
-                listViewSelectionDirty = false;
-            }
-        }
-        
-        super.layoutChildren();
-    }
 
     
     /**************************************************************************

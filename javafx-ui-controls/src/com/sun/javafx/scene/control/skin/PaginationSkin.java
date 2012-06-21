@@ -325,6 +325,10 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
             animate = false;
         }
 
+        // Remove the children in the pane before we create a new page.
+        currentStackPane.getChildren().clear();
+        nextStackPane.getChildren().clear();
+        
         pagination.setCurrentPageIndex(currentIndex);
         createPage(currentStackPane, currentIndex);
 
@@ -379,7 +383,7 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
         // created and visible == true.
         if (!nextStackPane.isVisible()) {
             if (!createPage(nextStackPane, currentAnimatedIndex)) {
-                // The page does not exist just return without starting
+                // The next page does not exist just return without starting
                 // any animation.
                 return;
             }
@@ -628,10 +632,24 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
     @Override protected void handleControlPropertyChanged(String p) {
         super.handleControlPropertyChanged(p);
         if (p == "PAGE_FACTORY") {
+            if (animate && timeline != null) {
+                // If we are in the middle of a page animation.
+                // Speedup and finish the animation then update the page factory.
+                timeline.setRate(8);
+                timeline.setOnFinished(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent arg0) {
+                        resetIndexes(false);
+                        navigation.initializePageIndicators();
+                        navigation.updatePageIndicators();
+                    }
+                });
+                return;
+            }
             resetIndexes(false);
             navigation.initializePageIndicators();
             navigation.updatePageIndicators();
-        } else if (p == "PAGE_COUNT") {
+        } else if (p == "PAGE_COUNT") {          
             resetIndexes(false);
             navigation.initializePageIndicators();
             navigation.updatePageIndicators();
@@ -654,15 +672,15 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
         double right = snapSpace(getInsets().getRight());
         double navigationWidth = navigation.isVisible() ? snapSize(navigation.minWidth(height)) : 0;
         return left + Math.max(currentStackPane.minWidth(height), navigationWidth) + right;
-    }   
-    
+    }
+
     @Override protected double computeMinHeight(double width) {
         double top = snapSpace(getInsets().getTop());
         double bottom = snapSpace(getInsets().getBottom());
         double navigationHeight = navigation.isVisible() ? snapSize(navigation.minHeight(width)) : 0;
         return top + currentStackPane.minHeight(width) + navigationHeight + bottom;
-    }    
-    
+    }
+
     @Override protected double computePrefWidth(double height) {
         double left = snapSpace(getInsets().getLeft());
         double right = snapSpace(getInsets().getRight());
@@ -787,10 +805,9 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
 
         // Create the indicators using fromIndex and toIndex.
         private void initializePageIndicators() {
-            if (!indicatorButtons.getToggles().isEmpty()) {
-                controlBox.getChildren().clear();
-                indicatorButtons.getToggles().clear();
-            }
+            previousIndicatorCount = 0;
+            controlBox.getChildren().clear();
+            indicatorButtons.getToggles().clear();
 
             controlBox.getChildren().add(leftArrowButton);
             for (int i = fromIndex; i <= toIndex; i++) {
@@ -857,8 +874,12 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
             int indicatorCount = 0;
             for (int i = 0; i < getSkinnable().getMaxPageIndicatorCount(); i++) {
                 int index = i < indicatorButtons.getToggles().size() ? i : indicatorButtons.getToggles().size() - 1;
-                IndicatorButton ib = (IndicatorButton)indicatorButtons.getToggles().get(index);
-                double iw = snapSize(Utils.boundedSize(ib.prefWidth(-1), ib.minWidth(-1), ib.maxWidth(-1)));
+                double iw = minButtonSize;
+                if (index != -1) {
+                    IndicatorButton ib = (IndicatorButton)indicatorButtons.getToggles().get(index);
+                    iw = snapSize(Utils.boundedSize(ib.prefWidth(-1), ib.minWidth(-1), ib.maxWidth(-1)));
+                }
+
                 x += (iw + controlBox.getSpacing());
                 if (x >= w) {
                     break;
@@ -1162,9 +1183,12 @@ public class PaginationSkin extends SkinBase<Pagination, PaginationBehavior>  {
 
         private void setIndicatorType() {
             if (getSkinnable().getStyleClass().contains(Pagination.STYLE_CLASS_BULLET)) {
-                getStyleClass().addAll("bullet-button");
+                getStyleClass().remove("number-button");
+                getStyleClass().add("bullet-button");
+                setText(null);
             } else {
-                getStyleClass().addAll("number-button");
+                getStyleClass().remove("bullet-button");
+                getStyleClass().add("number-button");
                 setText(Integer.toString(this.pageNumber + 1));
             }
         }

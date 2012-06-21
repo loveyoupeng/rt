@@ -354,7 +354,7 @@ public abstract class Node implements EventTarget {
                 s.addToDirtyList(this);
         }
 
-        impl_setDirty(dirtyBit);
+        dirtyBits |= dirtyBit.getMask();
     }
 
     /**
@@ -366,17 +366,6 @@ public abstract class Node implements EventTarget {
     @Deprecated
     protected final boolean impl_isDirty(DirtyBits dirtyBit) {
         return (dirtyBits & dirtyBit.getMask()) != 0;
-    }
-
-    /**
-     * Set the specified dirty bit.
-     *
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    private void impl_setDirty(DirtyBits dirtyBit) {
-        dirtyBits |= dirtyBit.getMask();
     }
 
     /**
@@ -679,11 +668,8 @@ public abstract class Node implements EventTarget {
 
     /**
      * Exists for Parent
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
-    @Deprecated
-    void impl_sceneChanged(Scene old) { }
+    void sceneChanged(Scene old) { }
 
     public final ReadOnlyObjectProperty<Scene> sceneProperty() {
         return scenePropertyImpl().getReadOnlyProperty();
@@ -697,14 +683,6 @@ public abstract class Node implements EventTarget {
                 @Override
                 protected void invalidated() {
                     Scene _scene = get();
-                    if (oldScene != _scene) {
-                        //Note: no need to remove from scene's dirty list
-                        //Scene's is checking if the node's scene is correct
-                        impl_reapplyCSS();
-                        if (_scene != null && !impl_isDirtyEmpty()) {
-                            _scene.addToDirtyList(Node.this);
-                        }
-                    }
                     if (getClip() != null) {
                         getClip().setScene(_scene);
                     }
@@ -719,7 +697,15 @@ public abstract class Node implements EventTarget {
                     }
                     focusSetDirty(oldScene);
                     focusSetDirty(_scene);
-                    impl_sceneChanged(oldScene);
+                    sceneChanged(oldScene);
+                    if (oldScene != _scene) {
+                        //Note: no need to remove from scene's dirty list
+                        //Scene's is checking if the node's scene is correct
+                        impl_reapplyCSS();
+                        if (_scene != null && !impl_isDirtyEmpty()) {
+                            _scene.addToDirtyList(Node.this);
+                        }
+                    }
                     oldScene = _scene;
                 }
 
@@ -1723,6 +1709,7 @@ public abstract class Node implements EventTarget {
      * is ready. The SnapshotResult that is passed into the call method of
      * the callback will contain the rendered image, the source node
      * that was rendered, and a copy of the SnapshotParameters.
+     * The callback parameter must not be null.
      *
      * @param params the snapshot parameters containing attributes that
      * will control the rendering. If the SnapshotParameters object is null,
@@ -1739,11 +1726,15 @@ public abstract class Node implements EventTarget {
      * @throws IllegalStateException if this method is called on a thread
      *     other than the JavaFX Application Thread.
      *
+     * @throws NullPointerException if the callback parameter is null.
      */
     public void snapshot(Callback<SnapshotResult, Void> callback,
             SnapshotParameters params, WritableImage image) {
 
         Toolkit.getToolkit().checkFxUserThread();
+        if (callback == null) {
+            throw new NullPointerException("The callback must not be null");
+        }
 
         if (params == null) {
             params = new SnapshotParameters();
@@ -1935,7 +1926,7 @@ public abstract class Node implements EventTarget {
      */
     public Dragboard startDragAndDrop(TransferMode... transferModes) {
         if (getScene() != null) {
-            return getScene().impl_startDragAndDrop(this, transferModes);
+            return getScene().startDragAndDrop(this, transferModes);
         }
         
         throw new IllegalStateException("Cannot start drag and drop on node "
@@ -1956,7 +1947,7 @@ public abstract class Node implements EventTarget {
      */
     public void startFullDrag() {
         if (getScene() != null) {
-            getScene().impl_startFullDrag(this);
+            getScene().startFullDrag(this);
             return;
         }
 
@@ -1976,7 +1967,7 @@ public abstract class Node implements EventTarget {
     private Node clipParent;
     // Use a getter function instead of giving clipParent package access,
     // so that clipParent doesn't get turned into a Location.
-    final Node impl_getClipParent() {
+    final Node getClipParent() {
         return clipParent;
     }
 
@@ -2026,7 +2017,7 @@ public abstract class Node implements EventTarget {
     public PGNode impl_getPGNode() {
         if (Utils.assertionEnabled()) {
             // Assertion checking code
-            if (!Scene.impl_isPGAccessAllowed()) {
+            if (!Scene.isPGAccessAllowed()) {
                 java.lang.System.err.println();
                 java.lang.System.err.println("*** unexpected PG access");
                 java.lang.Thread.dumpStack();
@@ -6146,7 +6137,7 @@ public abstract class Node implements EventTarget {
      */
     final class FocusedProperty extends ReadOnlyBooleanPropertyBase {
         private boolean value;
-        private boolean valid;
+        private boolean valid = true;
         private boolean needsChangeEvent = false;
 
         public void store(final boolean value) {
@@ -6321,16 +6312,6 @@ public abstract class Node implements EventTarget {
         if (getScene() != null) {
             getScene().requestFocus(this);
         }
-    }
-
-    /**
-     * Some nodes require a special handling to request focus.
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
-     */
-    @Deprecated
-    public final void impl_requestFocusImpl(Runnable r) {
-        r.run();
     }
 
     /**
@@ -7191,11 +7172,8 @@ public abstract class Node implements EventTarget {
 
     /**
      * Needed for testing.
-     * @treatAsPrivate implementation detail
-     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
-    @Deprecated
-    final CSSFlags impl_getCSSFlags() { return cssFlag; }
+    final CSSFlags getCSSFlags() { return cssFlag; }
 
     /**
      * Used to specify that the list of which pseudoclasses apply to this
@@ -7381,6 +7359,9 @@ public abstract class Node implements EventTarget {
 
         // set the key to null here so the next call to impl_getStyleCacheKey
         // will cause a new key to be created
+        if (styleCacheKey != null) {
+            styleCacheKey.clearCache();
+        }
         styleCacheKey = null;
         
         styleHelper = StyleManager.getInstance().getStyleHelper(this);

@@ -246,7 +246,7 @@ public class TableColumnHeader extends StackPane {
     private Label label;
 
     // sort order 
-    private int sortPos;
+    private int sortPos = -1;
     private StackPane arrow;
     private Label sortOrderLabel;
     private HBox sortOrderDots;
@@ -283,6 +283,7 @@ public class TableColumnHeader extends StackPane {
         if (getTableColumn() != null) {
             getTableColumn().visibleProperty().removeListener(weakVisibleListener);
             getTableColumn().widthProperty().removeListener(weakWidthListener);
+            getTableColumn().sortTypeProperty().removeListener(weakSortTypeListener);
         }
         
         sceneProperty().removeListener(sceneListener);
@@ -301,7 +302,7 @@ public class TableColumnHeader extends StackPane {
     private boolean isColumnReorderingEnabled() {
         // we only allow for column reordering if there are more than one column,
         // and if we are not on an embedded platform
-        return PlatformUtil.isEmbedded() && getTableView().getVisibleLeafColumns().size() > 1;
+        return ! PlatformUtil.isEmbedded() && getTableView().getVisibleLeafColumns().size() > 1;
     }
     
     private void initUI() {
@@ -387,9 +388,8 @@ public class TableColumnHeader extends StackPane {
         // we do not support sorting in embedded devices
         if (! isSortingEnabled()) return;
         
-        if (! isSortColumn) return;
-        
         isSortColumn = sortPos != -1;
+        if (! isSortColumn) return;
         
         final int sortColumnCount = getTableView().getSortOrder().size();
         boolean showSortOrderDots = sortPos <= 3 && sortColumnCount > 1;
@@ -764,7 +764,7 @@ public class TableColumnHeader extends StackPane {
 
         // Based on where the mouse actually is, we have to shuffle
         // where we want the column to end up. This code handles that.
-        int currentPos = getTableView().getVisibleLeafIndex(getTableColumn());
+        int currentPos = getIndex();
         newColumnPos += newColumnPos > currentPos && beforeMidPoint ?
             -1 : (newColumnPos < currentPos && !beforeMidPoint ? 1 : 0);
         
@@ -784,6 +784,13 @@ public class TableColumnHeader extends StackPane {
         getTableHeaderRow().setReordering(true);
     }
 
+    private int getIndex() {
+        ObservableList<TableColumn> columns = column.getParentColumn() == null ?
+            getTableView().getColumns() :
+            column.getParentColumn().getColumns();
+        return columns.indexOf(column);
+    }
+    
     protected void columnReorderingComplete(MouseEvent me) {
         // Move col from where it is now to the new position.
         moveColumn(getTableColumn(), newColumnPos);

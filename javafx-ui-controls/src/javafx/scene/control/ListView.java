@@ -58,6 +58,7 @@ import com.sun.javafx.css.converters.EnumConverter;
 import com.sun.javafx.scene.control.WeakListChangeListener;
 import com.sun.javafx.scene.control.skin.ListViewSkin;
 import com.sun.javafx.scene.control.skin.VirtualContainerBase;
+import java.lang.ref.WeakReference;
 import javafx.beans.DefaultProperty;
 
 /**
@@ -305,19 +306,25 @@ public class ListView<T> extends Control {
     public final ObjectProperty<ObservableList<T>> itemsProperty() {
         if (items == null) {
             items = new SimpleObjectProperty<ObservableList<T>>(this, "items") {
+                WeakReference<ObservableList<T>> oldItemsRef;
+                
                 @Override protected void invalidated() {
+                    ObservableList<T> oldItems = oldItemsRef == null ? null : oldItemsRef.get();
+                    
                     // FIXME temporary fix for RT-15793. This will need to be
                     // properly fixed when time permits
                     if (getSelectionModel() instanceof ListViewBitSetSelectionModel) {
-                        ((ListViewBitSetSelectionModel)getSelectionModel()).updateItemsObserver(null, getItems());
+                        ((ListViewBitSetSelectionModel)getSelectionModel()).updateItemsObserver(oldItems, getItems());
                     }
                     if (getFocusModel() instanceof ListViewFocusModel) {
-                        ((ListViewFocusModel)getFocusModel()).updateItemsObserver(null, getItems());
+                        ((ListViewFocusModel)getFocusModel()).updateItemsObserver(oldItems, getItems());
                     }
                     if (getSkin() instanceof ListViewSkin) {
                         ListViewSkin skin = (ListViewSkin) getSkin();
                         skin.updateListViewItems();
                     }
+                    
+                    oldItemsRef = new WeakReference<ObservableList<T>>(getItems());
                 }
             };
         }
@@ -908,6 +915,7 @@ public class ListView<T> extends Control {
             this.listView.itemsProperty().addListener(weakItemsObserver);
             if (listView.getItems() != null) {
                 this.listView.getItems().addListener(weakItemsContentObserver);
+//                updateItemsObserver(null, this.listView.getItems());
             }
         }
         
@@ -945,12 +953,14 @@ public class ListView<T> extends Control {
         private WeakChangeListener weakItemsObserver = 
                 new WeakChangeListener(itemsObserver);
         
+        private int newListHash = -1;
         private void updateItemsObserver(ObservableList<T> oldList, ObservableList<T> newList) {
             // update listeners
             if (oldList != null) {
                 oldList.removeListener(weakItemsContentObserver);
             }
-            if (newList != null) {
+            if (newList != null && newList.hashCode() != newListHash) {
+                newListHash = newList.hashCode();
                 newList.addListener(weakItemsContentObserver);
             }
 
@@ -969,6 +979,8 @@ public class ListView<T> extends Control {
          **********************************************************************/
 
         private final ListView<T> listView;
+        
+        private int previousModelSize = 0;
 
         // Listen to changes in the listview items list, such that when it 
         // changes we can update the selected indices bitset to refer to the 
@@ -993,11 +1005,26 @@ public class ListView<T> extends Control {
             c.reset();
             while (c.next()) {
                 if (c.wasReplaced()) {
-                    // Fix for RT-18969: the list had setAll called on it
-                    int index = getSelectedIndex();
-                    if (index < getItemCount() && index >= 0) {
-                        clearSelection(index);
-                        select(index);
+                    if (c.getList().isEmpty()) {
+                        // the entire items list was emptied - clear selection
+                        clearSelection();
+                    } else {
+                        int index = getSelectedIndex();
+                        
+                        if (previousModelSize == c.getRemovedSize()) {
+                            // all items were removed from the model
+                            clearSelection();
+                        } else if (index < getItemCount() && index >= 0) {
+                            // Fix for RT-18969: the list had setAll called on it
+                            // Use of makeAtomic is a fix for RT-20945
+                            makeAtomic = true;
+                            clearSelection(index);
+                            makeAtomic = false;
+                            select(index);
+                        } else {
+                            // Fix for RT-22079
+                            clearSelection();
+                        }
                     }
                 } else if (c.wasAdded() || c.wasRemoved()) {
                     int shift = c.wasAdded() ? c.getAddedSize() : -c.getRemovedSize();
@@ -1056,6 +1083,8 @@ public class ListView<T> extends Control {
                     }
                 }
             }
+            
+            previousModelSize = getItemCount();
         }
 
 

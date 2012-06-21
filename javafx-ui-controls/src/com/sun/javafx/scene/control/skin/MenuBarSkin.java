@@ -54,15 +54,20 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
+import javafx.beans.value.WeakChangeListener;
 
 import com.sun.javafx.menu.MenuBase;
 import com.sun.javafx.scene.control.GlobalMenuAdapter;
+import com.sun.javafx.scene.control.WeakEventHandler;
 import com.sun.javafx.scene.control.behavior.BehaviorBase;
 import com.sun.javafx.scene.traversal.Direction;
 import com.sun.javafx.scene.traversal.TraversalEngine;
 import com.sun.javafx.scene.traversal.TraverseListener;
 import com.sun.javafx.stage.StageHelper;
 import com.sun.javafx.tk.Toolkit;
+import java.lang.ref.WeakReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.event.ActionEvent;
 import javafx.event.EventType;
 import javafx.scene.input.*;
@@ -85,13 +90,30 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
     private boolean firstF10 = true;
 
     private static WeakHashMap<Stage, MenuBarSkin> systemMenuMap;
-    private static List<MenuBase> emptyMenuList = new ArrayList<MenuBase>();
+    private static List<MenuBase> wrappedDefaultMenus = new ArrayList<MenuBase>();
     private static Stage currentMenuBarStage;
     private List<MenuBase> wrappedMenus;
 
+    public static void setDefaultSystemMenuBar(final MenuBar menuBar) {
+        if (Toolkit.getToolkit().getSystemMenu().isSupported()) {
+            wrappedDefaultMenus.clear();
+            for (Menu menu : menuBar.getMenus()) {
+                wrappedDefaultMenus.add(GlobalMenuAdapter.adapt(menu));
+            }
+            menuBar.getMenus().addListener(new ListChangeListener<Menu>() {
+                @Override public void onChanged(Change<? extends Menu> c) {
+                    wrappedDefaultMenus.clear();
+                    for (Menu menu : menuBar.getMenus()) {
+                        wrappedDefaultMenus.add(GlobalMenuAdapter.adapt(menu));
+                    }
+                }
+            });
+        }
+    }
+
     private static void setSystemMenu(Stage stage) {
-        if (stage.isFocused()) {
-            while (stage.getOwner() instanceof Stage) {
+        if (stage != null && stage.isFocused()) {
+            while (stage != null && stage.getOwner() instanceof Stage) {
                 MenuBarSkin skin = systemMenuMap.get(stage);
                 if (skin != null && skin.wrappedMenus != null) {
                     break;
@@ -103,15 +125,23 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                     stage = (Stage)stage.getOwner();
                 }
             }
-            if (stage != currentMenuBarStage) {
-                List<MenuBase> menuList = null;
+        } else {
+            stage = null;
+        }
+
+        if (stage != currentMenuBarStage) {
+            List<MenuBase> menuList = null;
+            if (stage != null) {
                 MenuBarSkin skin = systemMenuMap.get(stage);
                 if (skin != null) {
                     menuList = skin.wrappedMenus;
                 }
-                Toolkit.getToolkit().getSystemMenu().setMenus((menuList != null) ? menuList : emptyMenuList);
-                currentMenuBarStage = stage;
             }
+            if (menuList == null) {
+                menuList = wrappedDefaultMenus;
+            }
+            Toolkit.getToolkit().getSystemMenu().setMenus(menuList);
+            currentMenuBarStage = stage;
         }
     }
 
@@ -143,8 +173,11 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
         });
     }
 
-
-
+    private WeakEventHandler weakSceneKeyEventHandler;
+    private WeakEventHandler weakSceneMouseEventHandler;
+    private EventHandler keyEventHandler;
+    private EventHandler mouseEventHandler;
+    
     /***************************************************************************
      *                                                                         *
      * Constructors                                                            *
@@ -156,8 +189,9 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
         
         container = new HBox();
         getChildren().add(container);
-     
-        control.getScene().addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
+        
+        // Key navigation 
+        keyEventHandler = new EventHandler<KeyEvent>() {
             @Override public void handle(KeyEvent event) {
                 // process right left and may be tab key events
                 if (openMenu != null) {
@@ -167,6 +201,7 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                                 if (openMenu == null) return;
                                 if ( !openMenu.isShowing()) {
                                     selectPrevMenu(); // just move the selection bar
+                                    event.consume();
                                     return;
                                 }
                                 showPrevMenu();
@@ -180,6 +215,7 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                                 if (openMenu == null) return;
                                 if (! openMenu.isShowing()) {
                                     selectNextMenu(); // just move the selection bar
+                                    event.consume();
                                     return;
                                 }
                                 showNextMenu();
@@ -210,19 +246,26 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                     }
                 }
             }
-        });
+        };
+        weakSceneKeyEventHandler = new WeakEventHandler(control.getScene(), KeyEvent.KEY_PRESSED, 
+                keyEventHandler);
+        control.getScene().addEventFilter(KeyEvent.KEY_PRESSED, weakSceneKeyEventHandler);
+        
         // When we click else where in the scene - menu selection should be cleared.
-        control.getScene().addEventFilter(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent t) {
+        mouseEventHandler = new EventHandler<MouseEvent>() {
+            @Override public void handle(MouseEvent t) {
                 if (!container.localToScene(container.getLayoutBounds()).contains(t.getX(), t.getY())) {
                     unSelectMenus();
                     firstF10 = true;
                 }
             }
-        });
+        };
+        weakSceneMouseEventHandler = new WeakEventHandler(control.getScene(), MouseEvent.MOUSE_CLICKED, 
+                mouseEventHandler);
+        control.getScene().addEventFilter(MouseEvent.MOUSE_CLICKED, weakSceneMouseEventHandler);
+        
         // When the parent window looses focus - menu selection should be cleared
-        control.getScene().getWindow().focusedProperty().addListener(new ChangeListener<Boolean>() {
+        control.getScene().getWindow().focusedProperty().addListener(new WeakChangeListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> ov, Boolean t, Boolean t1) {
               if (!t1) {
@@ -230,7 +273,7 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                   firstF10 = true;
               }
             }
-        });
+        }));
         
         rebuildUI();
         control.getMenus().addListener(new ListChangeListener<Menu>() {
@@ -286,9 +329,25 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
         };
         engine.addTraverseListener(this);
         setImpl_traversalEngine(engine);
+        
+        control.sceneProperty().addListener(new ChangeListener<Scene>() {
+            @Override
+            public void changed(ObservableValue<? extends Scene> ov, Scene t, Scene t1) {
+                if (weakSceneKeyEventHandler != null) {
+                    // remove event filter from the old scene (t)
+                    if (t != null)
+                        t.removeEventFilter(KeyEvent.KEY_PRESSED, weakSceneKeyEventHandler);
+                }
+                if (weakSceneMouseEventHandler != null) {
+                    // remove event filter from the old scene (t)
+                    if (t != null)
+                        t.removeEventFilter(MouseEvent.MOUSE_CLICKED, weakSceneMouseEventHandler);
+                }
+            }
+        });
     }
     
-
+    
     Runnable firstMenuRunnable = new Runnable() {
             public void run() {
                 /*
@@ -525,6 +584,7 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
                         }
                         openMenuButton = menuButton;
                         openMenu = menu;
+                        if (!menu.isShowing())menu.show();
                     }
                 }
             });
@@ -753,6 +813,8 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
         } else {
             focusedMenuIndex--;
         }
+        // RT-19359
+        if (getSkinnable().getMenus().get(focusedMenuIndex).isDisable()) return findPreviousSibling();
         clearMenuButtonHover();
         return getSkinnable().getMenus().get(focusedMenuIndex);
     }
@@ -764,6 +826,8 @@ public class MenuBarSkin extends SkinBase<MenuBar, BehaviorBase<MenuBar>> implem
         } else {
             focusedMenuIndex++;
         }
+        // RT_19359
+        if (getSkinnable().getMenus().get(focusedMenuIndex).isDisable()) return findNextSibling();
         clearMenuButtonHover();
         return getSkinnable().getMenus().get(focusedMenuIndex);
     }
