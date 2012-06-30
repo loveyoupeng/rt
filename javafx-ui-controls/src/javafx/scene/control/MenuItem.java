@@ -47,6 +47,7 @@ import javafx.scene.Node;
 import javafx.scene.input.KeyCombination;
 
 import com.sun.javafx.event.EventHandlerManager;
+import com.sun.javafx.event.EventTypeUtil;
 import com.sun.javafx.scene.control.skin.ContextMenuContent;
 import com.sun.javafx.scene.control.skin.ContextMenuSkin;
 import java.util.Collections;
@@ -330,7 +331,8 @@ public class MenuItem implements EventTarget {
     /**
      * <p>Called when a accelerator for the Menuitem is invoked</p>
      */
-    public final EventType<Event> MENU_VALIDATION_EVENT = new EventType<Event>();
+    public static final EventType<Event> MENU_VALIDATION_EVENT = EventTypeUtil.registerInternalEventType
+            (Event.ANY, "MENU_VALIDATION_EVENT");
     
     /**
      * The event handler that is associated with invocation of an accelerator for a MenuItem. This 
@@ -600,7 +602,7 @@ public class MenuItem implements EventTarget {
                     // Fix for RT-20582. We dive into the visual representation
                     // of this MenuItem so that we may return it to the caller.
                     ContextMenu parentPopup = MenuItem.this.getParentPopup();
-                    if (! (parentPopup.getSkin() instanceof ContextMenuSkin)) return null;
+                    if (parentPopup == null || ! (parentPopup.getSkin() instanceof ContextMenuSkin)) return null;
                     
                     ContextMenuSkin skin = (ContextMenuSkin) parentPopup.getSkin();
                     if (! (skin.getNode() instanceof ContextMenuContent)) return null;
