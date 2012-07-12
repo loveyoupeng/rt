@@ -1074,7 +1074,7 @@ public abstract class Parent extends Node {
     private final ObservableList<String> stylesheets = new TrackableObservableList<String>() {
         @Override
         protected void onChanged(Change<String> c) {
-            StyleManager.getInstance().parentStylesheetsChanged(getScene(), c);
+            StyleManager.getInstance().parentStylesheetsChanged(Parent.this, c);
             // RT-9784 - if stylesheet is removed, reset styled properties to 
             // their initial value.
             while(c.next()) {
@@ -1283,7 +1283,7 @@ public abstract class Parent extends Node {
             } else {
                 bounds = bounds.deriveWithNewBounds(cachedBounds);
             }
-            if (dirtyChildren != null) dirtyChildren.clear();
+
             return bounds;
         } else {
             // there is a scale, shear, or rotation happening, so need to
@@ -1323,7 +1323,7 @@ public abstract class Parent extends Node {
             else
                 bounds = bounds.deriveWithNewBounds((float)minX, (float)minY, (float)minZ,
                         (float)maxX, (float)maxY, (float)maxZ);
-            if (dirtyChildren != null) dirtyChildren.clear();
+
             return bounds;
         }
     }
