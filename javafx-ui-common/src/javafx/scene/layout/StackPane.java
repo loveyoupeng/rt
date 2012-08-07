@@ -21,25 +21,6 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
- *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
  */
 
 package javafx.scene.layout;
@@ -85,7 +66,7 @@ import com.sun.javafx.css.converters.EnumConverter;
  * {@link javafx.scene.layout.Region Region} for details.</p>
  *
  * <h4>Resizable Range</h4>
- * 
+ *
  * A stackpane's parent will resize the stackpane within the stackpane's resizable range
  * during layout.   By default the stackpane computes this range based on its content
  * as outlined in the table below.
@@ -225,7 +206,7 @@ public class StackPane extends Pane {
                 public void invalidated() {
                     requestLayout();
                 }
-                
+
                 @Override
                 public StyleableProperty getStyleableProperty() {
                     return StyleableProperties.ALIGNMENT;
@@ -244,7 +225,7 @@ public class StackPane extends Pane {
         }
         return alignment;
     }
-    
+
     private ObjectProperty<Pos> alignment;
     public final void setAlignment(Pos value) { alignmentProperty().set(value); }
     public final Pos getAlignment() { return alignment == null ? Pos.CENTER : alignment.get(); }
@@ -255,8 +236,9 @@ public class StackPane extends Pane {
      * have a content bias.
      */
     @Override public Orientation getContentBias() {
-        for (int i = 0; i < getChildren().size(); i++) {
-            Node child = getChildren().get(i);
+        final List<Node> children = getChildren();
+        for (int i = 0, size = children.size(); i < size; i++) {
+            Node child = children.get(i);
             if (child.isManaged() && child.getContentBias() != null) {
                 return child.getContentBias();
             }
@@ -342,7 +324,7 @@ public class StackPane extends Pane {
         double bottom = getInsets().getBottom();
         double baselineOffset = getAlignment().getVpos() == VPos.BASELINE ? getMaxBaselineOffset(managed)
                                     : height/2;
-        for (int i = 0; i < managed.size(); i++) {
+        for (int i = 0, size = managed.size(); i < size; i++) {
             Node child = managed.get(i);
             Pos childAlignment = StackPane.getAlignment(child);
             layoutInArea(child, left, top,
@@ -364,9 +346,9 @@ public class StackPane extends Pane {
       * @treatAsPrivate implementation detail
       */
      private static class StyleableProperties {
-         private static final StyleableProperty<StackPane,Pos> ALIGNMENT = 
+         private static final StyleableProperty<StackPane,Pos> ALIGNMENT =
              new StyleableProperty<StackPane,Pos>("-fx-alignment",
-                 new EnumConverter<Pos>(Pos.class), 
+                 new EnumConverter<Pos>(Pos.class),
                  Pos.CENTER) {
 
             @Override
@@ -383,7 +365,7 @@ public class StackPane extends Pane {
 
          private static final List<StyleableProperty> STYLEABLES;
          static {
-            final List<StyleableProperty> styleables = 
+            final List<StyleableProperty> styleables =
                 new ArrayList<StyleableProperty>(Region.impl_CSS_STYLEABLES());
             Collections.addAll(styleables,
                 ALIGNMENT
