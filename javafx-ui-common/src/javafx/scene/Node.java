@@ -437,8 +437,8 @@ public abstract class Node implements EventTarget {
      * that we can pass the right data down to the PG side later during
      * synchronization (rather than statics as they were before).
      */
-    public BaseBounds _geomBounds = new RectBounds(0, 0, -1, -1);
-    public BaseBounds _txBounds = new RectBounds(0, 0, -1, -1);
+    private BaseBounds _geomBounds = new RectBounds(0, 0, -1, -1);
+    private BaseBounds _txBounds = new RectBounds(0, 0, -1, -1);
 
     // Happens before we hold the sync lock
     void updateBounds() {
@@ -934,17 +934,20 @@ public abstract class Node implements EventTarget {
     public final BooleanProperty visibleProperty() {
         if (visible == null) {
             visible = new StyleableBooleanProperty(true) {
-
+                boolean oldValue = true;
                 @Override
                 protected void invalidated() {
-                    impl_markDirty(DirtyBits.NODE_VISIBLE);
-                    impl_geomChanged();
-                    updateTreeVisible();
-                    if (getParent() != null) {
-                        // notify the parent of the potential change in visibility
-                        // of this node, since visibility affects bounds of the
-                        // parent node
-                        getParent().childVisibilityChanged(Node.this);
+                    if (oldValue != get()) {
+                        impl_markDirty(DirtyBits.NODE_VISIBLE);
+                        impl_geomChanged();
+                        updateTreeVisible();
+                        if (getParent() != null) {
+                            // notify the parent of the potential change in visibility
+                            // of this node, since visibility affects bounds of the
+                            // parent node
+                            getParent().childVisibilityChanged(Node.this);
+                        }
+                        oldValue = get();
                     }
                 }
 
@@ -3340,9 +3343,13 @@ public abstract class Node implements EventTarget {
     @Deprecated
     protected void impl_geomChanged() {
         if (geomBoundsInvalid) {
-            //We need to call this even if geomBounds are already invalid.
-            //Text is relying on this behaviour.
-            impl_notifyLayoutBoundsChanged(); 
+            // GeomBoundsInvalid is false when node geometry changed and
+            // the untransformed node bounds haven't been recalculated yet.
+            // Most of the time, the recalculation of layout and transformed
+            // node bounds don't require validation of untransformed bounds
+            // and so we can not skip the following notifications.
+            impl_notifyLayoutBoundsChanged();
+            transformedBoundsChanged();
             return;
         }
         geomBounds.makeEmpty();
@@ -7466,7 +7473,7 @@ public abstract class Node implements EventTarget {
     @Deprecated
     protected StyleHelper impl_createStyleHelper() {
         
-        styleHelper = StyleManager.getInstance().getStyleHelper(this);
+        styleHelper = getScene().styleManager.getStyleHelper(this);
         return styleHelper;
     }
 
@@ -7480,11 +7487,11 @@ public abstract class Node implements EventTarget {
         return styleHelper;
     }
 
-    private static final long HOVER_PSEUDOCLASS_STATE = StyleManager.getInstance().getPseudoclassMask("hover");
-    private static final long PRESSED_PSEUDOCLASS_STATE = StyleManager.getInstance().getPseudoclassMask("pressed");
-    private static final long DISABLED_PSEUDOCLASS_STATE = StyleManager.getInstance().getPseudoclassMask("disabled");
-    private static final long FOCUSED_PSEUDOCLASS_STATE = StyleManager.getInstance().getPseudoclassMask("focused");
-    private static final long SHOW_MNEMONICS_PSEUDOCLASS_STATE = StyleManager.getInstance().getPseudoclassMask("show-mnemonics");
+    private static final long HOVER_PSEUDOCLASS_STATE = StyleManager.getPseudoclassMask("hover");
+    private static final long PRESSED_PSEUDOCLASS_STATE = StyleManager.getPseudoclassMask("pressed");
+    private static final long DISABLED_PSEUDOCLASS_STATE = StyleManager.getPseudoclassMask("disabled");
+    private static final long FOCUSED_PSEUDOCLASS_STATE = StyleManager.getPseudoclassMask("focused");
+    private static final long SHOW_MNEMONICS_PSEUDOCLASS_STATE = StyleManager.getPseudoclassMask("show-mnemonics");
 
     /**
      * @treatAsPrivate implementation detail
