@@ -29,14 +29,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import com.sun.javafx.jmx.MXNodeAlgorithm;
-import com.sun.javafx.jmx.MXNodeAlgorithmContext;
-import javafx.beans.property.*;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener.Change;
 import javafx.collections.ObservableList;
-
 import com.sun.javafx.Logging;
 import com.sun.javafx.TempState;
 import com.sun.javafx.Utils;
@@ -51,6 +50,8 @@ import com.sun.javafx.geom.Point2D;
 import com.sun.javafx.geom.RectBounds;
 import com.sun.javafx.geom.transform.BaseTransform;
 import com.sun.javafx.geom.transform.NoninvertibleTransformException;
+import com.sun.javafx.jmx.MXNodeAlgorithm;
+import com.sun.javafx.jmx.MXNodeAlgorithmContext;
 import com.sun.javafx.logging.PlatformLogger;
 import com.sun.javafx.scene.CSSFlags;
 import com.sun.javafx.scene.DirtyBits;
@@ -59,8 +60,7 @@ import com.sun.javafx.sg.PGGroup;
 import com.sun.javafx.sg.PGNode;
 import com.sun.javafx.tk.Toolkit;
 
-import static com.sun.javafx.logging.PulseLogger.PULSE_LOGGING_ENABLED;
-import static com.sun.javafx.logging.PulseLogger.PULSE_LOGGER;
+import static com.sun.javafx.logging.PulseLogger.*;
 
 /**
  * The base class for all nodes that have children in the scene graph.
@@ -567,8 +567,8 @@ public abstract class Parent extends Node {
                 Node e = children.get(i);
                 if (e.isManaged()) {
                     unmodifiableManagedChildren.add(e);
-                        }
                 }
+            }
         }
         return (List<E>)unmodifiableManagedChildren;
     }
@@ -1078,10 +1078,9 @@ public abstract class Parent extends Node {
             final Scene scene = getScene();
             if (scene != null) {
 
-                // if stylesheets change, 
-                //    then this Parent needs a new StyleManager 
-                Parent.this.styleManager = null;
-                StyleManager sm = getStyleManager();
+                // Notify the StyleManager if stylesheets change. This Parent's
+                // styleManager will get recreated in impl_processCSS.
+                final StyleManager sm = getStyleManager();
                 if (sm != null) sm.stylesheetsChanged(c);
                 
                 // RT-9784 - if stylesheet is removed, reset styled properties to 
@@ -1109,27 +1108,37 @@ public abstract class Parent extends Node {
     
     private StyleManager styleManager;
     private StyleManager getStyleManager() {
+        return styleManager;
+    }
+    // method should only be called if styles are being reapplied.
+    private StyleManager createStyleManager() {
         
-        final Scene scene = getScene();
+        styleManager = null;
+        
         final boolean hasStylesheets = (getStylesheets().isEmpty() == false);
         
-        if (scene == null) {
+        if (hasStylesheets) {
+
+            // This Parent's styleManager will chain to the styleManager of 
+            // one of its ancestors, or to the scene styleManager.
+            StyleManager parentStyleManager = null;
+            Parent parent = getParent();
+            while (parent != null && 
+                    (parentStyleManager = parent.getStyleManager()) == null) {
+                parent = parent.getParent();
+            }
             
-            styleManager = null;
-            
-        } else if (styleManager == null) {
-            
-            // My styleManager is my parent's styleManager, 
-            // unless I have stylesheets of my own. 
-            final Parent parent = getParent();
-            styleManager = 
-                (parent != null) ? parent.getStyleManager() : scene.styleManager;
-            
-            if (hasStylesheets) {                        
-                styleManager = StyleManager.createStyleManager(Parent.this, styleManager);            
+            if (parentStyleManager != null) {
+                styleManager = 
+                    StyleManager.createStyleManager(Parent.this, parentStyleManager);
+            } else {
+                final Scene scene = getScene();
+                if (scene != null) {
+                    StyleManager.createStyleManager(Parent.this, scene.styleManager);
+                }
             } 
-        }
         
+        }
         return styleManager;
     }
     /**
@@ -1174,19 +1183,35 @@ public abstract class Parent extends Node {
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
     @Deprecated
-    @Override public void impl_processCSS(StyleManager styleManager, boolean reapply) {
+    @Override protected void impl_processCSS(StyleManager styleManager, boolean reapply) {
 
-        // Parent has its own StyleManager which is either adopted from 
-        // Scene or is created new if this Parent has its own stylesheets.
-        final StyleManager parentStyleManager = getStyleManager();
+        // Nothing to do...
+        if (!reapply && (cssFlag == CSSFlags.CLEAN)) return;
         
         // Determine whether we will need to reapply from here on down
         boolean flag = reapply || cssFlag == CSSFlags.REAPPLY;
+        
+        // Parent has its own StyleManager which is either adopted from 
+        // Scene or is created new if this Parent has its own stylesheets.
+        // If we're reapplying styles, then re-create this Parent's styleManager, 
+        // which might still be null if there are no stylesheets. 
+        // If we are not reapplying styles, then just get the current styleManager,
+        // which might be null.
+        // If this Parent doesn't have its own StyleManager, then just use
+        // the one passed in.
+        StyleManager sm = flag ? createStyleManager() : getStyleManager();
+        if (sm == null) sm = styleManager;
+
         // Let the super implementation handle CSS for this node
-        super.impl_processCSS(parentStyleManager, flag);
+        super.impl_processCSS(sm, flag);
+        
         // For each child, process CSS
         for (int i=0, max=children.size(); i<max; i++) {
-            children.get(i).impl_processCSS(parentStyleManager, flag);
+            final Node child = children.get(i);
+            // If the parent styles are being updated or reapplied, then
+            // make sure the children are updated or reapplied. 
+            child.cssFlag = (flag ? CSSFlags.REAPPLY : CSSFlags.UPDATE);
+            child.impl_processCSS(sm, flag);
         }
     }
     

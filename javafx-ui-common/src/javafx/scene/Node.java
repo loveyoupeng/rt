@@ -26,10 +26,33 @@
 package javafx.scene;
 
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.binding.BooleanExpression;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.BooleanPropertyBase;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.DoublePropertyBase;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ObjectPropertyBase;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanPropertyBase;
+import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.StringProperty;
+import javafx.beans.property.StringPropertyBase;
 import javafx.beans.value.ChangeListener;
+import javafx.beans.value.WritableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener.Change;
 import javafx.collections.ObservableList;
@@ -45,9 +68,11 @@ import javafx.geometry.Bounds;
 import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.Point3D;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.effect.Blend;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.Effect;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
@@ -55,15 +80,18 @@ import javafx.scene.input.InputEvent;
 import javafx.scene.input.InputMethodEvent;
 import javafx.scene.input.InputMethodRequests;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.input.MouseDragEvent;
-import javafx.scene.input.TransferMode;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.RotateEvent;
-import javafx.scene.input.ZoomEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.input.SwipeEvent;
+import javafx.scene.input.TouchEvent;
+import javafx.scene.input.TransferMode;
+import javafx.scene.input.ZoomEvent;
+import javafx.scene.text.Font;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Transform;
-
+import javafx.util.Callback;
 import com.sun.javafx.Logging;
 import com.sun.javafx.TempState;
 import com.sun.javafx.Utils;
@@ -72,8 +100,23 @@ import com.sun.javafx.beans.event.AbstractNotifyListener;
 import com.sun.javafx.binding.ExpressionHelper;
 import com.sun.javafx.collections.TrackableObservableList;
 import com.sun.javafx.collections.UnmodifiableListSet;
-import com.sun.javafx.css.*;
-import com.sun.javafx.css.converters.*;
+import com.sun.javafx.css.ParsedValue;
+import com.sun.javafx.css.Selector;
+import com.sun.javafx.css.Style;
+import com.sun.javafx.css.StyleConverter;
+import com.sun.javafx.css.StyleHelper;
+import com.sun.javafx.css.StyleManager;
+import com.sun.javafx.css.Styleable;
+import com.sun.javafx.css.StyleableBooleanProperty;
+import com.sun.javafx.css.StyleableDoubleProperty;
+import com.sun.javafx.css.StyleableObjectProperty;
+import com.sun.javafx.css.StyleableProperty;
+import com.sun.javafx.css.Stylesheet;
+import com.sun.javafx.css.converters.BooleanConverter;
+import com.sun.javafx.css.converters.CursorConverter;
+import com.sun.javafx.css.converters.EffectConverter;
+import com.sun.javafx.css.converters.EnumConverter;
+import com.sun.javafx.css.converters.SizeConverter;
 import com.sun.javafx.effect.EffectDirtyBits;
 import com.sun.javafx.geom.BaseBounds;
 import com.sun.javafx.geom.PickRay;
@@ -94,16 +137,6 @@ import com.sun.javafx.scene.transform.TransformUtils;
 import com.sun.javafx.scene.traversal.Direction;
 import com.sun.javafx.sg.PGNode;
 import com.sun.javafx.tk.Toolkit;
-import java.util.*;
-import javafx.beans.property.*;
-import javafx.beans.value.WritableValue;
-import javafx.geometry.Rectangle2D;
-import javafx.scene.image.WritableImage;
-import javafx.scene.input.SwipeEvent;
-import javafx.scene.input.TouchEvent;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
-import javafx.util.Callback;
 
 /**
  * Base class for scene graph nodes. A scene graph is a set of tree data structures
@@ -664,7 +697,7 @@ public abstract class Node implements EventTarget {
             };
         }
         return parent;
-                    }
+    }
 
     private final InvalidationListener parentDisabledChangedListener = new InvalidationListener() {
         @Override public void invalidated(Observable valueModel) {
@@ -2651,11 +2684,9 @@ public abstract class Node implements EventTarget {
             if (contentBias == null) {
                 w = boundedSize(prefWidth(-1), minWidth(-1), maxWidth(-1));
                 h = boundedSize(prefHeight(-1), minHeight(-1), maxHeight(-1));
-
             } else if (contentBias == Orientation.HORIZONTAL) {
                 w = boundedSize(prefWidth(-1), minWidth(-1), maxWidth(-1));
                 h = prefHeight(w);
-
             } else { // bias == VERTICAL
                 h = boundedSize(prefHeight(-1), minHeight(-1), maxHeight(-1));
                 w = prefWidth(h);
@@ -7412,7 +7443,7 @@ public abstract class Node implements EventTarget {
         // apply the CSS immediately and not add it to the scene's queue
         // for deferred action.
         if (getParent() != null && getParent().performingLayout) {
-            impl_processCSS(true);
+            impl_processCSS(getScene().styleManager, true);
         } else if (getScene() != null) {
             notifyParentsOfInvalidatedCSS();
         }
@@ -7422,7 +7453,8 @@ public abstract class Node implements EventTarget {
         switch (cssFlag) {
             case CLEAN:
                 break;
-            case DIRTY_BRANCH:
+            case DIRTY_BRANCH:     
+                styleHelper.setTransitionState(impl_getPseudoClassState());
                 Parent me = (Parent)this;
                 // clear the flag first in case the flag is set to something
                 // other than clean by downstream processing.
@@ -7448,9 +7480,36 @@ public abstract class Node implements EventTarget {
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
     @Deprecated // SB-dependency: RT-21206 has been filed to track this
-    public void impl_processCSS(boolean reapply) {        
-        final StyleManager styleManager = StyleManager.getStyleManager(this.getScene());
-        impl_processCSS(styleManager, reapply);
+    public final void impl_processCSS(boolean reapply) {
+        
+        assert(getScene() != null);
+        if (getScene() == null) return;
+        
+        //
+        // Normally, css is processed from the root down. If this method
+        // is called, then the code is trying to force css to be applied 
+        // in the middle of a pulse.
+        //
+        
+        //
+        // Since StyleHelper expects css to be applied top-down, follow
+        // the path from this node to the root and set the transition states. 
+        // The transitionsStates _have_ to be set from the root on down. 
+        final java.util.Stack<Parent> parents = new java.util.Stack<Parent>();
+        Parent parent = getParent();
+        while (parent != null) {
+            parents.push(parent);
+            parent = parent.getParent();
+        }
+        while (parents.isEmpty() == false) {
+            parent = parents.pop();
+            parent.impl_getStyleHelper().setTransitionState(parent.impl_getPseudoClassState());
+        }
+        
+        final boolean flag = (reapply || cssFlag == CSSFlags.REAPPLY);
+        cssFlag = flag ? CSSFlags.REAPPLY : CSSFlags.UPDATE;
+        final StyleManager styleManager = getScene().styleManager;
+        impl_processCSS(styleManager, flag);
     }
     
     /**
@@ -7462,8 +7521,11 @@ public abstract class Node implements EventTarget {
      * @deprecated This is an internal API that is not intended for use and will be removed in the next version
      */
     @Deprecated // SB-dependency: RT-21206 has been filed to track this    
-    public void impl_processCSS(StyleManager styleManager, boolean reapply) {
-
+    protected void impl_processCSS(StyleManager styleManager, boolean reapply) {
+        
+        // Nothing to do...
+        if (!reapply && (cssFlag == CSSFlags.CLEAN)) return;
+        
         // Match new styles if I am told I need to reapply
         // or if my own flag indicates I need to reapply
         if (reapply || (cssFlag == CSSFlags.REAPPLY)) {
@@ -7476,10 +7538,9 @@ public abstract class Node implements EventTarget {
         // other than clean by downstream processing.
         cssFlag = CSSFlags.CLEAN;
 
-        // Transition to the new state
-        if (styleHelper != null) {
-            styleHelper.transitionToState();
-        }
+        // Transition to the new state and apply styles
+        styleHelper.setTransitionState(impl_getPseudoClassState());        
+        styleHelper.transitionToState();
     }
     
     /**
