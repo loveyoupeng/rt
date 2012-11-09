@@ -202,9 +202,11 @@ public final class CategoryAxis extends Axis<String> {
     // -------------- CONSTRUCTORS -------------------------------------------------------------------------------------
 
     /**
-     * Create a auto-ranging category axis
+     * Create a auto-ranging category axis with an empty list of categories.
      */
-    public CategoryAxis() { }
+    public CategoryAxis() { 
+        this(FXCollections.<String>observableArrayList());
+    }
 
     /**
      * Create a category axis with the given categories. This will not auto-range but be fixed with the given categories.
@@ -426,11 +428,11 @@ public final class CategoryAxis extends Axis<String> {
      */
     @Override public String getValueForDisplay(double displayPosition) {
         if (getSide().equals(Side.TOP) || getSide().equals(Side.BOTTOM)) { // HORIZONTAL
-            if (displayPosition < 0 || displayPosition > getHeight()) return null;
+            if (displayPosition < 0 || displayPosition > getWidth()) return null;
             double d = (displayPosition - firstCategoryPos.get()) /   categorySpacing.get();
             return toRealValue(d);
         } else { // VERTICAL
-            if (displayPosition < 0 || displayPosition > getWidth()) return null;
+            if (displayPosition < 0 || displayPosition > getHeight()) return null;
             double d = (displayPosition - firstCategoryPos.get()) /   (categorySpacing.get() * -1);
             return toRealValue(d);
         }

@@ -36,6 +36,7 @@ import javafx.beans.property.StringPropertyBase;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener.Change;
 import javafx.collections.ObservableList;
+import javafx.geometry.NodeOrientation;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 
@@ -49,8 +50,10 @@ import com.sun.javafx.tk.TKStage;
 import com.sun.javafx.tk.Toolkit;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.DoublePropertyBase;
+import javafx.beans.property.Property;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.value.ObservableValue;
 
 /**
  * The JavaFX {@code Stage} class is the top level JavaFX container.
@@ -180,7 +183,7 @@ public class Stage extends Window {
 
         @Override
         public void setResizable(Stage stage, boolean resizable) {
-            stage.resizableProperty().set(resizable);
+            ((ResizableProperty)stage.resizableProperty()).setNoInvalidate(resizable);
         }
 
         @Override
@@ -711,17 +714,18 @@ public class Stage extends Window {
      * Programatically you may still change the size of the Stage. This is
      * a hint which allows the implementation to optionally make the Stage
      * resizable by the user.
-     *
+     * <p>
+     * <b>Warning:</b> Since 8.0 the property cannot be bound and will throw
+     * {@code RuntimeException} on an attempt to do so. This is because
+     * the setting of resizable is asynchronous on some systems or generally
+     * might be set by the system / window manager.
+     * 
      * @defaultValue true
      */
     private BooleanProperty resizable;
 
     public final void setResizable(boolean value) {
         resizableProperty().set(value);
-        if (impl_peer != null) {
-            applyBounds();
-            impl_peer.setResizable(value);
-        }
     }
 
     public final boolean isResizable() {
@@ -730,9 +734,47 @@ public class Stage extends Window {
 
     public final BooleanProperty resizableProperty() {
         if (resizable == null) {
-            resizable = new SimpleBooleanProperty(Stage.this, "resizable", true);
+            resizable = new ResizableProperty();
         }
         return resizable;
+    }
+
+    //We cannot return ReadOnlyProperty in resizable, as this would be
+    // backward incompatible. All we can do is to create this custom property
+    // implementation that disallows binds
+    private class ResizableProperty extends SimpleBooleanProperty {
+        private boolean noInvalidate;
+
+        public ResizableProperty() {
+            super(Stage.this, "resizable", true);
+        }
+
+        void setNoInvalidate(boolean value) {
+            noInvalidate = true;
+            set(value);
+            noInvalidate = false;
+        }
+
+        @Override
+        protected void invalidated() {
+            if (noInvalidate) {
+                return;
+            }
+            if (impl_peer != null) {
+                applyBounds();
+                impl_peer.setResizable(get());
+            }
+        }
+
+        @Override
+        public void bind(ObservableValue<? extends Boolean> rawObservable) {
+            throw new RuntimeException("Resizable property cannot be bound");
+        }
+
+        @Override
+        public void bindBidirectional(Property<Boolean> other) {
+            throw new RuntimeException("Resizable property cannot be bound");
+        }
     }
 
     /**
@@ -926,8 +968,11 @@ public class Stage extends Window {
             // Setup the peer
             Window window = getOwner();
             TKStage tkStage = (window == null ? null : window.impl_getPeer());
+            Scene scene = getScene();
+            boolean rtl = scene != null && scene.getEffectiveNodeOrientation() == NodeOrientation.RIGHT_TO_LEFT;
+
             impl_peer = toolkit.createTKStage(getStyle(), isPrimary(),
-                    getModality(), tkStage);
+                    getModality(), tkStage, rtl);
             impl_peer.setImportant(isImportant());
             peerListener = new StagePeerListener(this, STAGE_ACCESSOR);
             

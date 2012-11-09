@@ -137,6 +137,7 @@ import com.sun.javafx.scene.transform.TransformUtils;
 import com.sun.javafx.scene.traversal.Direction;
 import com.sun.javafx.sg.PGNode;
 import com.sun.javafx.tk.Toolkit;
+import javafx.geometry.NodeOrientation;
 
 /**
  * Base class for scene graph nodes. A scene graph is a set of tree data structures
@@ -717,14 +718,59 @@ public abstract class Node implements EventTarget {
      *
      * @defaultValue null
      */
-    private ReadOnlyObjectWrapper<Scene> scene;
+    private ReadOnlyObjectWrapper<Scene> scene = new ReadOnlyObjectWrapper<Scene>() {
+
+        private Scene oldScene;
+
+        @Override
+        protected void invalidated() {
+            Scene _scene = get();
+            if (getClip() != null) {
+                getClip().setScene(_scene);
+            }
+            updateCanReceiveFocus();
+            if (isFocusTraversable()) {
+                if (oldScene != null) {
+                    oldScene.unregisterTraversable(Node.this);
+                }
+                if (_scene != null) {
+                    _scene.registerTraversable(Node.this);
+                }
+            }
+            focusSetDirty(oldScene);
+            focusSetDirty(_scene);
+            sceneChanged(oldScene);
+            if (oldScene != _scene) {
+                //Note: no need to remove from scene's dirty list
+                //Scene's is checking if the node's scene is correct
+                impl_reapplyCSS();
+                if (_scene != null && !impl_isDirtyEmpty()) {
+                    _scene.addToDirtyList(Node.this);
+                }
+                if (_scene == null && peer != null) {
+                    peer.release();
+                }
+            }
+            oldScene = _scene;
+        }
+
+        @Override
+        public Object getBean() {
+            return Node.this;
+        }
+
+        @Override
+        public String getName() {
+            return "scene";
+        }
+    };
 
     final void setScene(Scene value) {
-        scenePropertyImpl().set(value);
+        scene.set(value);
     }
 
     public final Scene getScene() {
-        return scene == null ? null : scene.get();
+        return scene.get();
     }
 
     /**
@@ -733,55 +779,7 @@ public abstract class Node implements EventTarget {
     void sceneChanged(Scene old) { }
 
     public final ReadOnlyObjectProperty<Scene> sceneProperty() {
-        return scenePropertyImpl().getReadOnlyProperty();
-    }
-
-    private ReadOnlyObjectWrapper<Scene> scenePropertyImpl() {
-        if (scene == null) {
-            scene = new ReadOnlyObjectWrapper<Scene>() {
-                private Scene oldScene;
-
-                @Override
-                protected void invalidated() {
-                    Scene _scene = get();
-                    if (getClip() != null) {
-                        getClip().setScene(_scene);
-                    }
-                    updateCanReceiveFocus();
-                    if (isFocusTraversable()) {
-                        if (oldScene != null) {
-                            oldScene.unregisterTraversable(Node.this);
-                        }
-                        if (_scene != null) {
-                            _scene.registerTraversable(Node.this);
-                        }
-                    }
-                    focusSetDirty(oldScene);
-                    focusSetDirty(_scene);
-                    sceneChanged(oldScene);
-                    if (oldScene != _scene) {
-                        //Note: no need to remove from scene's dirty list
-                        //Scene's is checking if the node's scene is correct
-                        impl_reapplyCSS();
-                        if (_scene != null && !impl_isDirtyEmpty()) {
-                            _scene.addToDirtyList(Node.this);
-                        }
-                    }
-                    oldScene = _scene;
-                }
-
-                @Override
-                public Object getBean() {
-                    return Node.this;
-                }
-
-                @Override
-                public String getName() {
-                    return "scene";
-                }
-            };
-        }
-        return scene;
+        return scene.getReadOnlyProperty();
     }
 
     /**
@@ -3043,7 +3041,7 @@ public abstract class Node implements EventTarget {
             return;
         }
         layoutBounds.invalidate();
-        if (nodeTransformation != null && nodeTransformation.hasScaleOrRotate()) {
+        if ((nodeTransformation != null && nodeTransformation.hasScaleOrRotate()) || hasMirroring()) {
             // if either the scale or rotate convenience variables are used,
             // then we need a valid pivot point. Since the layoutBounds
             // affects the pivot we need to invalidate the transform
@@ -3186,10 +3184,17 @@ public abstract class Node implements EventTarget {
                         (float) (bounds.getMaxZ() + translateZ));
             }
             return bounds;
-        } else if (tx.is2D()) {
-            // this is a scale / rotate / skew transform
+        } else if (tx.is2D()
+                && (tx.getType()
+                & ~(BaseTransform.TYPE_UNIFORM_SCALE | BaseTransform.TYPE_TRANSLATION
+                | BaseTransform.TYPE_FLIP | BaseTransform.TYPE_QUADRANT_ROTATION)) != 0) {
+            // this is a non-uniform scale / non-quadrant rotate / skew transform
             return impl_computeGeomBounds(bounds, tx);
         } else {
+            // 3D transformations and
+            // selected 2D transformations (unifrom transform, flip, quadrant rotation).
+            // These 2D transformation will yield tight bounds when applied on the pre-computed
+            // geomBounds
             // Note: Transforming the local geomBounds into a 3D space will yield a bounds
             // that isn't as tight as transforming its geometry and compute it bounds.
             updateGeomBounds();
@@ -3910,6 +3915,28 @@ public abstract class Node implements EventTarget {
                 }
             }
 
+            // Check to see whether the node requires mirroring
+            if (getParent() == null) {
+                Scene scene = getScene();
+                if (scene != null && equals(scene.getRoot())) {
+                    // Mirror the root node
+                    if (hasMirroring()) {
+                        double xOffset = scene.getWidth() / 2;
+                        localToParentTx.translate(xOffset, 0, 0);
+                        localToParentTx.scale(-1, 1);
+                        localToParentTx.translate(-xOffset, 0, 0);
+                    }
+                }
+            } else {
+                // Mirror a leaf node
+                if (hasMirroring()) {
+                    double xOffset = impl_getPivotX();
+                    localToParentTx.translate(xOffset, 0, 0);
+                    localToParentTx.scale(-1, 1);
+                    localToParentTx.translate(-xOffset, 0, 0);
+                }
+            }
+            
             transformDirty = false;
         }
     }
@@ -4969,6 +4996,127 @@ public abstract class Node implements EventTarget {
         return eventHandlerProperties;
     }
 
+    /***************************************************************************
+     *                                                                         *
+     *                       Component Orientation Properties                  *
+     *                                                                         *
+     **************************************************************************/
+    
+    private ObjectProperty<NodeOrientation> nodeOrientation;
+    
+    public final void setNodeOrientation(NodeOrientation orientation) {
+        nodeOrientationProperty().set(orientation);
+    }
+    
+    public final NodeOrientation getNodeOrientation() {
+        return nodeOrientation == null ? NodeOrientation.INHERIT : nodeOrientation.get();
+    }
+    /**
+     * Property holding NodeOrientation.
+     * <p>
+     * Node orientation describes the flow of visual data within a node.
+     * In the English speaking world, visual data normally flows from
+     * left-to-right. In an Arabic or Hebrew world, visual data flows
+     * from right-to-left.  This is consistent with the reading order
+     * of text in both worlds.  The default value is left-to-right.
+     * </p>
+     *
+     * @return NodeOrientation
+     */
+    public final ObjectProperty<NodeOrientation> nodeOrientationProperty() {
+        if (nodeOrientation == null) {
+            nodeOrientation = new StyleableObjectProperty<NodeOrientation>(NodeOrientation.INHERIT) {
+                @Override
+                protected void invalidated() {
+                    impl_transformsChanged();
+                    // Apply the transform to all the children of this node
+                    if (Node.this instanceof Parent) {
+                        Parent p = (Parent)Node.this;
+                        List<Node> children = p.getChildren();
+                        for (int i = 0, max = children.size(); i < max; i++) {
+                            Node n = p.getChildren().get(i);
+                            n.impl_transformsChanged();
+                        }
+                    }
+                }
+                
+                @Override
+                public Object getBean() {
+                    return Node.this;
+                }
+
+                @Override
+                public String getName() {
+                    return "nodeOrientation";
+                }
+
+                @Override
+                public StyleableProperty getStyleableProperty() {
+                    //TODO - not supported
+                    throw new UnsupportedOperationException("Not supported yet.");
+                }
+                
+            };
+        }
+        return nodeOrientation;
+    }
+
+    /**
+     * Returns the NodeOrientation that is used to draw the node.
+     * <p>
+     * The effective orientation of a node resolves the inheritance of
+     * node orientation, returning either left-to-right or right-to-left.
+     * </p>
+     */
+    public final NodeOrientation getEffectiveNodeOrientation() {
+        return getEffectiveNodeOrientation(false);
+    }
+    
+    /**
+     * Determines whether a node should be mirrored when node orientation
+     * is right-to-left.
+     * <p>
+     * When a node is mirrored, the origin is automtically moved to the
+     * top right corner causing the node to layout children and draw from
+     * right to left using a mirroring transformation.  Some nodes may wish
+     * to draw from right to left without using a transformation.  These
+     * nodes will will answer {@code false} and implement right-to-left
+     * orientation without using the automatic transformation.
+     * </p>
+     */
+    public boolean isAutomaticallyMirrored() {
+        return true;
+    }
+    
+    NodeOrientation getNodeOrientation(boolean actual) {
+        if (actual && !isAutomaticallyMirrored()) return NodeOrientation.LEFT_TO_RIGHT;
+        return nodeOrientation == null ? NodeOrientation.INHERIT : nodeOrientation.get();
+    }
+    
+    final NodeOrientation getEffectiveNodeOrientation(boolean actual) {
+        NodeOrientation orientation = getNodeOrientation(actual);
+        if (orientation == NodeOrientation.INHERIT) {
+            Parent parent = getParent();
+            if (parent != null) return parent.getEffectiveNodeOrientation(actual);
+            Scene scene = getScene();
+            if (scene != null) return scene.getEffectiveNodeOrientation();
+            return NodeOrientation.LEFT_TO_RIGHT;
+        }
+        return orientation;
+    }
+    
+    // Return true if the node needs to be mirrored.
+    // A node has mirroring if the orientation differs from the parent
+    private boolean hasMirroring() {
+        Parent parent = getParent();
+        if (parent == null) {
+            return getEffectiveNodeOrientation(true) == NodeOrientation.RIGHT_TO_LEFT;
+        }
+        NodeOrientation orientation = getNodeOrientation(true);
+        if (orientation == NodeOrientation.INHERIT) return false;
+        return orientation != parent.getEffectiveNodeOrientation(true);
+    }
+    
     /***************************************************************************
      *                                                                         *
      *                       Misc Seldom Used Properties                       *

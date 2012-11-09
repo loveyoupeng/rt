@@ -44,7 +44,9 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.geometry.NodeOrientation;
 import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -118,7 +120,8 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
 
         @Override protected void invalidated() {
             if (getWidth() > 0) {
-                textNode.impl_caretBiasProperty().set(get());
+                // RT-25479: Disable caret bias handling for now.
+                // textNode.impl_caretBiasProperty().set(get());
                 updateCaretOff();
             }
         }
@@ -383,7 +386,6 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
                     Point2D p = new Point2D(caretHandle.getLayoutX() + e.getX() + pressX - textNode.getLayoutX(),
                                             caretHandle.getLayoutY() + e.getY() - pressY - 6);
                     HitInfo hit = textNode.impl_hitTestChar(translateCaretPosition(p));
-                    int pos = hit.getCharIndex();
                     positionCaret(hit, false);
                     e.consume();
                 }
@@ -516,7 +518,7 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
     }
 
     private void updateTextPos() {
-        switch (getSkinnable().getAlignment().getHpos()) {
+        switch (getAlignment().getHpos()) {
           case CENTER:
             double midPoint = (textRight.get() - textLeft.get()) / 2;
             if (usePromptText.get()) {
@@ -564,7 +566,7 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
 
         // If delta is negative, then translate in the negative direction
         // to cause the text to scroll to the right. Vice-versa for positive.
-        switch (getSkinnable().getAlignment().getHpos()) {
+        switch (getAlignment().getHpos()) {
           case CENTER:
             textTranslateX.set(textTranslateX.get() - delta);
             break;
@@ -622,7 +624,7 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
         final Bounds clipBounds = clip.getBoundsInParent();
         final Bounds caretBounds = caretPath.getLayoutBounds();
 
-        switch (getSkinnable().getAlignment().getHpos()) {
+        switch (getAlignment().getHpos()) {
           case CENTER:
             updateTextPos();
             break;
@@ -674,7 +676,8 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
     }
 
     public void positionCaret(HitInfo hit, boolean select) {
-        int pos = hit.getCharIndex();
+//         int pos = hit.getCharIndex();
+        int pos = hit.getInsertionIndex();
         boolean isNewLine =
                (pos > 0 &&
                 pos < getSkinnable().getLength() &&
@@ -747,7 +750,7 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
             double textY;
             Insets insets = getInsets();
             FontMetrics fm = fontMetrics.get();
-            switch (getSkinnable().getAlignment().getVpos()) {
+            switch (getAlignment().getVpos()) {
               case TOP:
                 textY = insets.getTop() + fm.getMaxAscent();
                 break;
@@ -785,6 +788,18 @@ public class TextFieldSkin extends TextInputControlSkin<TextField, TextFieldBeha
             selectionHandle1.setLayoutY(b.getMinY() - selectionHandle1.getHeight() + 1);
             selectionHandle2.setLayoutY(b.getMaxY() - 1);
         }
+    }
+    private Pos getAlignment() {
+        Pos pos = getSkinnable().getAlignment();
+        if (getSkinnable().getEffectiveNodeOrientation() == NodeOrientation.RIGHT_TO_LEFT) {
+            //TODO - what about BOTTOM_LEFT and other hAlignments?
+            if (pos == Pos.CENTER_LEFT) {
+                pos = Pos.CENTER_RIGHT;
+            } else {
+                pos = Pos.CENTER_LEFT;
+            }
+        }
+        return pos;
     }
 
     @Override public Point2D getMenuPosition() {

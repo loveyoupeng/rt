@@ -38,6 +38,7 @@ import javafx.beans.property.ObjectPropertyBase;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.WritableValue;
 import javafx.geometry.HPos;
+import javafx.geometry.NodeOrientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.VPos;
 import javafx.scene.Node;
@@ -47,16 +48,16 @@ import com.sun.javafx.css.StyleManager;
 import com.sun.javafx.css.StyleableBooleanProperty;
 import com.sun.javafx.css.StyleableProperty;
 import com.sun.javafx.css.converters.BooleanConverter;
-import javafx.beans.DefaultProperty;
 
 public class FXVK extends Control {
 
-    public final static String[] VK_TYPE_NAMES = new String[] { "text", "numeric", "url", "email" };
+    final static String[] VK_TYPE_NAMES = new String[] { "text", "numeric", "url", "email" };
     public final static String VK_TYPE_PROP_KEY = "vkType";
 
     String[] chars;
 
     FXVK() {
+        setNodeOrientation(NodeOrientation.LEFT_TO_RIGHT);
         getStyleClass().setAll(DEFAULT_STYLE_CLASS);
     }
 

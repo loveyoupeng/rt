@@ -116,7 +116,7 @@ public abstract class Toolkit {
     private static final String QUANTUM_TOOLKIT     = "com.sun.javafx.tk.quantum.QuantumToolkit";
     private static final String DEFAULT_TOOLKIT     = QUANTUM_TOOLKIT;
     
-    protected static Map gradientMap = new WeakHashMap();
+    private static final Map gradientMap = new WeakHashMap();
 
     private static String lookupToolkitClass(String name) {
         if ("prism".equalsIgnoreCase(name)) {
@@ -308,7 +308,7 @@ public abstract class Toolkit {
 
     public abstract TKStage createTKStage(StageStyle stageStyle);
     public abstract TKStage createTKStage(StageStyle stageStyle, boolean primary,
-            Modality modality, TKStage owner);
+            Modality modality, TKStage owner, boolean rtl);
 
     public abstract TKStage createTKPopupStage(StageStyle stageStyle, Object owner);
     public abstract TKStage createTKEmbeddedStage(HostInterface host);
