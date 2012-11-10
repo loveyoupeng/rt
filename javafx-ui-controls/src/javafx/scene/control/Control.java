@@ -35,6 +35,7 @@ import javafx.beans.property.ObjectPropertyBase;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.WritableValue;
+import com.sun.javafx.accessible.providers.AccessibleProvider;
 import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -68,6 +69,7 @@ import java.util.List;
  */
 @DuplicateInBuilderProperties(properties = {"minHeight", "minWidth", "maxHeight", "maxWidth", "prefHeight", "prefWidth"})
 public abstract class Control extends Region implements Skinnable {
+
 
     static {
         // Ensures that the caspian.css file is set as the user agent style sheet
@@ -821,4 +823,13 @@ public abstract class Control extends Region implements Skinnable {
     protected /*do not make final*/ Boolean impl_cssGetFocusTraversableInitialValue() {
         return Boolean.TRUE;
     }
+    
+    /**
+     * @treatAsPrivate implementation detail
+     * @deprecated This is an internal API that is not intended for use and will be removed in the next version
+     */
+    @Deprecated public AccessibleProvider impl_getAccessible() {
+        return null; // return a valid value for specific controls accessible objects
+    }
+
 }
