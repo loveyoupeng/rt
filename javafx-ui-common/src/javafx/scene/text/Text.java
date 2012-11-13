@@ -50,6 +50,7 @@ import javafx.beans.property.StringProperty;
 import javafx.beans.value.WritableValue;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
+import javafx.geometry.NodeOrientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.VPos;
 import javafx.scene.paint.Color;
@@ -137,6 +138,7 @@ public class Text extends Shape {
      * Creates an empty instance of Text.
      */
     public Text() {
+        setNodeOrientation(NodeOrientation.LEFT_TO_RIGHT);
         InvalidationListener listener = new InvalidationListener() {
             @Override public void invalidated(Observable observable) {
                 checkSpan();
