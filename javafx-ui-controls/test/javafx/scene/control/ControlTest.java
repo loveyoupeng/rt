@@ -4,6 +4,7 @@
 
 package javafx.scene.control;
 
+import com.sun.javafx.css.CssMetaData;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -770,7 +771,7 @@ public class ControlTest {
     @Test public void canSpecifySkinViaCSS() {
         disableLogging();
         try {
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, "javafx.scene.control.SkinStub");
             assertNotNull(c.getSkin());
             assertTrue(c.getSkin() instanceof SkinStub);
@@ -785,7 +786,7 @@ public class ControlTest {
         try {
             SkinChangeListener listener = new SkinChangeListener();
             c.skinProperty().addListener(listener);
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, "javafx.scene.control.SkinStub");
             assertTrue(listener.changed);
             listener.changed = false;
@@ -801,7 +802,7 @@ public class ControlTest {
         try {
             SkinChangeListener listener = new SkinChangeListener();
             c.skinProperty().addListener(listener);
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, null);
             assertFalse(listener.changed);
             assertNull(c.getSkin());
@@ -815,7 +816,7 @@ public class ControlTest {
         try {
             SkinChangeListener listener = new SkinChangeListener();
             c.skinProperty().addListener(listener);
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, "");            
             assertFalse(listener.changed);
             assertNull(c.getSkin());
@@ -829,7 +830,7 @@ public class ControlTest {
         try {
             SkinChangeListener listener = new SkinChangeListener();
             c.skinProperty().addListener(listener);
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, "javafx.scene.control.ControlTest$BadSkin");
             assertFalse(listener.changed);
             assertNull(c.getSkin());
@@ -843,7 +844,7 @@ public class ControlTest {
         try {
             SkinChangeListener listener = new SkinChangeListener();
             c.skinProperty().addListener(listener);
-            StyleablePropertyMetaData styleable = StyleablePropertyMetaData.getStyleablePropertyMetaData(c.skinClassNameProperty());
+            CssMetaData styleable = CssMetaData.getCssMetaData(c.skinClassNameProperty());
             styleable.set(c, "javafx.scene.control.ControlTest$ExceptionalSkin");
             assertFalse(listener.changed);
             assertNull(c.getSkin());
@@ -994,10 +995,10 @@ public class ControlTest {
             try {
                 // should get NoSuchMethodException if ctor is not public
 //                Constructor ctor = someClass.getConstructor((Class[])null);
-                Method m = someClass.getMethod("getClassStyleablePropertyMetaData", (Class[]) null);
+                Method m = someClass.getMethod("getClassCssMetaData", (Class[]) null);
 //                Node node = (Node)ctor.newInstance((Object[])null);
                 Node node = (Node)someClass.newInstance();
-                for (StyleablePropertyMetaData styleable : (List<StyleablePropertyMetaData>) m.invoke(null)) {
+                for (CssMetaData styleable : (List<CssMetaData>) m.invoke(null)) {
                     
                     what = someClass.getName() + " " + styleable.getProperty();
                     WritableValue writable = styleable.getWritableValue(node);

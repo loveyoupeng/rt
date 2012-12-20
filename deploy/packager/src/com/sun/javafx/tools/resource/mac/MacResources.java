@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,23 +22,10 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package com.sun.javafx.css;
 
-import javafx.beans.value.WritableValue;
-import javafx.scene.Node;
+package com.sun.javafx.tools.resource.mac;
 
-/**
- * A StyleablePropertyMetaData which is used for sub-properties, such as -fx-background-color, etc.
- */
-public class SubCSSProperty<T> extends StyleablePropertyMetaData<Node,T> {
-    public SubCSSProperty(String property, StyleConverter converter, T initialValue) {
-        super(property, converter, initialValue);
-    }
+//no-op, use as anchor for resource loading
+public class MacResources {
 
-    public SubCSSProperty(String property, StyleConverter converter) {
-        super(property, converter);
-    }
-
-    @Override public boolean isSettable(Node node) { return false; }
-    @Override public WritableValue<T> getWritableValue(Node node) { return null; }
 }
