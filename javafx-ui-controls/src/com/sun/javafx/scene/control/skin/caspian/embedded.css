@@ -1,0 +1,325 @@
+/*
+ * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved. 
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER. 
+ *  
+ * This code is free software; you can redistribute it and/or modify it 
+ * under the terms of the GNU General Public License version 2 only, as 
+ * published by the Free Software Foundation.  Oracle designates this 
+ * particular file as subject to the "Classpath" exception as provided 
+ * by Oracle in the LICENSE file that accompanied this code. 
+ *  
+ * This code is distributed in the hope that it will be useful, but WITHOUT 
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License 
+ * version 2 for more details (a copy is included in the LICENSE file that 
+ * accompanied this code). 
+ *  
+ * You should have received a copy of the GNU General Public License version 
+ * 2 along with this work; if not, write to the Free Software Foundation, 
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA. 
+ *  
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA 
+ * or visit www.oracle.com if you need additional information or have any 
+ * questions.
+ *                                                                              
+ */
+
+/*******************************************************************************
+ *                                                                             *
+ * CSS Styles for embedded devices. These styles either override or            *
+ * supplement those in caspian.css                                             *
+ *                                                                             *
+ ******************************************************************************/
+
+
+
+/*******************************************************************************
+ *                                                                             *
+ * Label                                                                       *
+ *                                                                             *
+ ******************************************************************************/
+.label {
+    -fx-font-size: 0.75em; /** 9pt */
+}
+
+/*******************************************************************************
+ *                                                                             *
+ * PopupMenu                                                                   *
+ *                                                                             *
+ ******************************************************************************/
+
+.context-menu .text-input-context-menu {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-padding: 0;
+}
+
+.context-menu .text-input-context-menu .button {
+    -fx-background-radius: 0;   
+    -fx-background-color: derive(-fx-color,-40%);
+    -fx-text-fill: white;
+}
+
+.context-menu .text-input-context-menu .pointer {    
+    -fx-background-color: derive(-fx-color,-40%);    
+    -fx-padding: 6px;
+    -fx-shape: "M 6 0 L 12 12 L 0 12 z";
+    -fx-scale-shape: true;
+}
+
+/*******************************************************************************
+ *                                                                             *
+ * ScrollBar                                                                   *
+ *                                                                             *
+ ******************************************************************************/
+
+.scroll-bar {
+    -fx-opacity: 50%;
+}
+
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: blue;
+}
+
+.scroll-bar:vertical .thumb {
+    -fx-background-color: blue;
+}
+
+.scroll-bar:horizontal .track {
+    -fx-background-color: skyblue;
+}
+
+.scroll-bar:vertical .track {
+    -fx-background-color: skyblue;
+}
+
+/*******************************************************************************
+ *                                                                             *
+ * ScrollPane                                                                   *
+ *                                                                             *
+ ******************************************************************************/
+.scroll-pane .corner {
+    -fx-background-color: skyblue;    
+}
+
+
+
+/*******************************************************************************
+ *                                                                             *
+ * TextField, PasswordField, TextArea                                                                   *
+ *                                                                             *
+ ******************************************************************************/
+
+.text-field {
+    -fx-padding: 6 5 6 5; /* Adding 3px to top and bottom for handles */
+}
+
+.text-area .content {
+    -fx-padding: 9 5 9 5; /* Adding 6px to top and bottom for handles */
+}
+
+
+.caret-handle {
+    -fx-background-color: transparent,
+                          black /*#ACACAC*/,
+                          linear-gradient(to bottom, #AFAFAF 0%, #DFDFDF 100%);
+    -fx-background-insets: -4 -18 -8 -18, 0, 1;
+    -fx-shape: "M11.974,2.579L20,12.358V20H4V12.356L11.974,2.579z";
+/*
+    -fx-shape: "M11.972,1L3,12v17h18V12L11.972,1L11.972,1z";
+    -fx-padding: 0.375em 0.291em 0.375em 0.291em;
+*/
+    -fx-padding: 0.32em 0.3em 0.32em 0.3em;
+    -fx-cursor: hand;
+}
+
+
+
+.selection-handle {
+    -fx-background-color: transparent,
+                          #0071bc /*-fx-accent*/,
+                          linear-gradient(to bottom, #0063AA 0%, #008AED 100%);
+    -fx-background-insets: -4 -18 -8 -18, 0, 1;
+    -fx-shape: "M10.974,2.579L19,12.358V20H3V12.356L10.974,2.579z";
+/*
+    -fx-shape: "M10.972,1L2,12v17h18V12L10.972,1L10.972,1z";
+    -fx-padding: 0.375em 0.291em 0.375em 0.291em;
+*/
+    -fx-padding: 0.32em 0.3em 0.32em 0.3em;
+    -fx-cursor: hand;
+}
+
+
+/*******************************************************************************
+ *                                                                             *
+ * ComboBox                                                                    *
+ *                                                                             *
+ ******************************************************************************/
+
+.combo-box:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.combo-box:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+/* Customie the ListCell that appears in the ComboBox button itself */
+.combo-box > .list-cell {
+    -fx-padding: 0.5em 0.725em 0.5em 0.725em;
+    -fx-cell-size: 2em; 
+}
+
+.combo-box-popup > .list-view > .virtual-flow > .clipped-container > .sheet > .list-cell {
+    -fx-cell-size: 2.182em;
+}
+
+
+/*******************************************************************************
+ *                                                                             *
+ * SplitPane                                                                   *
+ *                                                                             *
+ ******************************************************************************/
+.split-pane > .split-pane-divider {
+    -fx-padding: 0 0.2725em 0 0.2725em; 
+}
+
+.split-pane > .split-pane-divider > .horizontal-grabber {
+    -fx-padding: 0.636em 0.18em 0.636em 0.18em;
+}
+
+.split-pane > .split-pane-divider > .vertical-grabber {
+    -fx-padding: 0.205em 0.545em 0.205em 0.545em;
+}
+
+
+/*******************************************************************************
+ *                                                                             *
+ * TabPane                                                                     *
+ *                                                                             *
+ ******************************************************************************/
+.tab-pane {
+    -fx-tab-min-width: 2.725em;
+    -fx-tab-min-height: 2.725em; 
+    -fx-tab-max-height: 2.725em; 
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab > .tab-container > .tab-label {
+    -fx-font-size: 1em;
+    -fx-padding: 0 0.545em 0 0.545em;
+}
+
+
+/*******************************************************************************
+ *                                                                             *
+ * TitledPane                                                                  *
+ *                                                                             *
+ ******************************************************************************/
+
+
+/*******************************************************************************
+ *                                                                             *
+ * ListView                                                                    *
+ *                                                                             *
+ ******************************************************************************/
+.list-view:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.list-view:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+.list-cell {
+    -fx-cell-size: 2.364em;
+}
+
+
+/*******************************************************************************
+ *
+ * 2-level focus setting.
+ * The visuals aren't ready yet, so currently these are just placeholders.
+ *
+ ******************************************************************************/
+
+.choice-box:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.choice-box:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+.slider:external-focus {
+    -fx-border-color: red; 
+    -xfx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.slider:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+.slider:external-focus > .thumb {
+    -xfx-border-color: red; 
+    -fx-focus-color: red;
+}
+.slider:internal-focus > .thumb {
+    -xfx-border-color: null; 
+    -fx-focus-color: #0093ff;
+}
+
+.text-field:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.text-field:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+.password-field:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.password-field:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+.text-area:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.text-area:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+.table-view:external-focus {
+    -fx-border-color: red; 
+    -fx-focus-color: red;
+    -fx-opacity: 0.8;
+}
+.table-view:internal-focus {
+    -fx-border-color: null; 
+    -fx-focus-color: #0093ff;
+    -fx-opacity: 1.0;
+}
+
+
