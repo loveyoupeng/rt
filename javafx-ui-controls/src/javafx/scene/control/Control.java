@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import javafx.application.Application;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ObjectPropertyBase;
@@ -47,7 +46,6 @@ import com.sun.javafx.application.PlatformImpl;
 import com.sun.javafx.beans.annotations.DuplicateInBuilderProperties;
 import com.sun.javafx.css.CssError;
 import javafx.css.CssMetaData;
-import javafx.css.PseudoClass;
 import com.sun.javafx.css.StyleManager;
 import javafx.css.StyleableObjectProperty;
 import javafx.css.StyleableStringProperty;
@@ -156,7 +154,7 @@ public abstract class Control extends Region implements Skinnable {
      * Skin is a SkinBase and this is a direct reference to it. If it is null
      * then we know the skin is not a SkinBase and we need to call getSkin().
      */
-    private SkinBase skinBase;
+    private SkinBase<?> skinBase;
 
     /***************************************************************************
     *                                                                         *
@@ -268,7 +266,7 @@ public abstract class Control extends Region implements Skinnable {
             if (skin instanceof SkinBase) {
                 // record a reference of the skin, if it is a SkinBase, for
                 // performance reasons
-                skinBase = (SkinBase) skin;
+                skinBase = (SkinBase<?>) skin;
                 // Note I do not remove any children here, because the
                 // skin will have already configured all the children
                 // by the time setSkin has been called. This is because
@@ -602,7 +600,7 @@ public abstract class Control extends Region implements Skinnable {
      */
     private Node getSkinNode() {
         assert skinBase == null;
-        Skin skin = getSkin();
+        Skin<?> skin = getSkin();
         return skin == null ? null : skin.getNode();
     }
 
