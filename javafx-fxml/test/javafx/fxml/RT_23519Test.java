@@ -25,37 +25,21 @@
 
 package javafx.fxml;
 
-import com.sun.javafx.fxml.PropertyChangeEvent;
-import javafx.event.EventHandler;
+import java.io.IOException;
+import javafx.scene.control.Button;
 import org.junit.Test;
 
-import java.io.IOException;
+import static org.junit.Assert.*;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-public class RT_25559 {
-
+public class RT_23519Test {
+    
     @Test
-    public void testControllerFactory() throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("rt_25559.fxml"));
-        final boolean[] ref = new boolean[] {false};
-        fxmlLoader.getNamespace().put("manualAction", new EventHandler<PropertyChangeEvent<String>>() {
-            @Override
-            public void handle(PropertyChangeEvent<String> stringPropertyChangeEvent) {
-                ref[0] = true;
-            }
-        });
+    public void testId() throws IOException {
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("rt_23519.fxml"));
         fxmlLoader.load();
 
-        Widget w = fxmlLoader.getRoot();
-        assertFalse(ref[0]);
-        w.setName("abc");
-        assertTrue(ref[0]);
+        Button btn = (Button) fxmlLoader.getNamespace().get("fxid");
+        assertEquals(btn.getId(), "ButtonID");
     }
-
-    public static void main(String[] args) throws IOException {
-        new RT_25559().testControllerFactory();
-    }
-
+    
 }

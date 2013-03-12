@@ -4366,7 +4366,9 @@ public abstract class Node implements EventTarget, Styleable {
         double boundsDistance = impl_intersectsBounds(pickRay);
         if (!Double.isNaN(boundsDistance)) {
             if (isPickOnBounds()) {
-                pickResult.offer(this, boundsDistance, PickResultChooser.computePoint(pickRay, boundsDistance));
+                if (pickResult != null) {
+                    pickResult.offer(this, boundsDistance, PickResultChooser.computePoint(pickRay, boundsDistance));
+                }
                 return true;
             } else {
                 return impl_computeIntersects(pickRay, pickResult);
@@ -8060,7 +8062,9 @@ public abstract class Node implements EventTarget, Styleable {
       */
      @Deprecated // SB-dependency: RT-21096 has been filed to track this
      public final ObservableMap<StyleableProperty<?>, List<Style>> impl_getStyleMap() {
-         return styleHelper.getObservableStyleMap();
+         return styleHelper != null 
+             ? styleHelper.getObservableStyleMap() 
+             : FXCollections.<StyleableProperty<?>, List<Style>>emptyObservableMap();
      }
 
      /**
@@ -8070,7 +8074,9 @@ public abstract class Node implements EventTarget, Styleable {
       */
      @Deprecated // SB-dependency: RT-21096 has been filed to track this
      public final void impl_setStyleMap(ObservableMap<StyleableProperty<?>, List<Style>> styleMap) {
-         styleHelper.setObservableStyleMap(styleMap);
+         if (styleHelper != null) {
+             styleHelper.setObservableStyleMap(styleMap);
+         }
      }
           
     /**

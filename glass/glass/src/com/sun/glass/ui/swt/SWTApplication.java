@@ -233,6 +233,11 @@ public final class SWTApplication extends Application {
     }
 
     @Override
+    public Pixels createPixels(int width, int height, IntBuffer data, float scale) {
+        return new SWTPixels(width, height, data, scale);
+    }
+
+    @Override
     protected int staticPixels_getNativeFormat() {
         return Pixels.Format.BYTE_BGRA_PRE;
     }
@@ -744,13 +749,13 @@ public final class SWTApplication extends Application {
     
     static void lockFocus (Control control) {
         if (SWT.getPlatform().equals("cocoa")) {
-            invokeLock(control, "lockFocus");
+            //invokeLock(control, "lockFocus");
             setView(control, new_NSOpenGLContext(context));
         }
     }
     
     static void unlockFocus (Control control) {
-        if (SWT.getPlatform().equals("cocoa")) invokeLock(control, "unlockFocus");
+        //if (SWT.getPlatform().equals("cocoa")) invokeLock(control, "unlockFocus");
     }
     
     static Object new_NSOpenGLContext (long context) {
