@@ -28,6 +28,7 @@ package com.sun.javafx.scene.control.skin;
 import java.util.ArrayList;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.ConditionalFeature;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.property.BooleanProperty;
@@ -57,6 +58,7 @@ import javafx.util.Callback;
 import javafx.util.Duration;
 
 import com.sun.javafx.PlatformUtil;
+import com.sun.javafx.application.PlatformImpl;
 
 /**
  * Implementation of a virtualized container using a cell based mechanism.
@@ -145,7 +147,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                     viewportBreadth = viewportLength = lastPosition = 0;
                     hbar.setValue(0);
                     vbar.setValue(0);
-                    adjustPosition(0.0f);
+                    setPosition(0.0f);
                     setNeedsLayout(true);
                     requestLayout();
                 }
@@ -238,11 +240,10 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         return position;
     }
 
-    public void setPosition(double position) {
-        boolean needsUpdate = this.position != position;
-        this.position = position;
+    public void setPosition(double newPosition) {
+        boolean needsUpdate = this.position != newPosition;
+        this.position = com.sun.javafx.Utils.clamp(0, newPosition, 1);;
         if (needsUpdate) {
-            adjustPosition(position);
             requestLayout();
         }
     }
@@ -516,7 +517,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         */
         setOnScroll(new EventHandler<javafx.scene.input.ScrollEvent>() {
             @Override public void handle(ScrollEvent event) {
-                if (PlatformUtil.isEmbedded()) {
+                if (PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     if (touchDetected == false &&  mouseDown == false ) {
                         startSBReleasedAnimation();
                     }
@@ -595,7 +596,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             @Override
             public void handle(MouseEvent e) {
                 mouseDown = true;
-                if (PlatformUtil.isEmbedded()) {
+                if (PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     scrollBarOn();
                 }
                 if (isFocusTraversable()) {
@@ -618,7 +619,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             @Override
             public void handle(MouseEvent e) {
                 mouseDown = false;
-                if (PlatformUtil.isEmbedded()) {
+                if (PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     startSBReleasedAnimation();
                 }
             }
@@ -626,7 +627,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         addEventFilter(MouseEvent.MOUSE_DRAGGED, new EventHandler<MouseEvent>() {
             @Override
             public void handle(MouseEvent e) {
-                if (PlatformUtil.isEmbedded()) {
+                if (PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     scrollBarOn();
                 }
                 if (! isPanning || ! isPannable()) return;
@@ -877,7 +878,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         Cell cell;
         boolean cellNeedsLayout = false;
 
-        if (PlatformUtil.isEmbedded()) {
+        if (PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
             if ((tempVisibility == true && (hbar.isVisible() == false || vbar.isVisible() == false)) ||
                 (tempVisibility == false && (hbar.isVisible() == true || vbar.isVisible() == true))) {
                 cellNeedsLayout = true;
@@ -1016,7 +1017,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                 // Update the item count
 //                setItemCount(cellCount);
             } else if (currentIndex >= cellCount) {
-                adjustPosition(1.0f);
+                setPosition(1.0f);
 //                setItemCount(cellCount);
             } else if (firstCell != null) {
                 double firstCellOffset = getCellPosition(firstCell);
@@ -1118,7 +1119,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         int firstIndex = cell.getIndex();
         double firstCellPos = getCellPosition(cell);
         if (firstIndex == 0 && firstCellPos > 0) {
-            adjustPosition(0.0f);
+            setPosition(0.0f);
             offset = 0;
             for (int i = 0; i < cells.size(); i++) {
                 cell = cells.get(i);
@@ -1214,9 +1215,9 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             // to be at 0 instead of 1.
             start = getCellPosition(firstCell);
             if (firstCell.getIndex() == 0 && start == 0) {
-                adjustPosition(0);
+                setPosition(0);
             } else if (getPosition() != 1) {
-                adjustPosition(1);
+                setPosition(1);
             }
         }
 
@@ -1270,7 +1271,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         // accordingly. If during layout we find that one or the other of the
         // bars actually is needed, then we will perform a cleanup pass
 
-        if (!PlatformUtil.isEmbedded()) {
+        if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
             if (needBreadthBar) viewportLength -= breadthBarLength;
             if (needLengthBar) viewportBreadth -= lengthBarBreadth;
 
@@ -1317,7 +1318,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                 // If cellCount is > than cells.size(), then we know we need the
                 // length bar.
                 if (cellCount > cellsSize) {
-                    if (!PlatformUtil.isEmbedded()) {
+                    if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                         lengthBar.setVisible(true);
                     }
                     else {
@@ -1329,7 +1330,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                     // we need to check the last cell's layout position + length
                     // to determine if we need the length bar
                     T lastCell = cells.getLast();
-                    if (!PlatformUtil.isEmbedded()) {
+                    if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                         lengthBar.setVisible((getCellPosition(lastCell) + getCellLength(lastCell)) > viewportLength);
                     }
                     else {
@@ -1338,14 +1339,14 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                 }
                 
                 // If the bar is needed, adjust the viewportBreadth
-                if (lengthBar.isVisible() && !PlatformUtil.isEmbedded()) {
+                if (lengthBar.isVisible() && !PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     viewportBreadth -= lengthBarBreadth;
                 }
             }
             
             if (! breadthBar.isVisible()) {
                 final boolean visible = maxPrefBreadth > viewportBreadth;
-                if (!PlatformUtil.isEmbedded()) {
+                if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                     breadthBar.setVisible(visible);
                     if (visible) {
                         viewportLength -= breadthBarLength;
@@ -1383,7 +1384,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             /*
             ** Positioning the ScrollBar
             */
-            if (!PlatformUtil.isEmbedded()) {
+            if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                 if (isVertical) {
                     hbar.resizeRelocate(0, viewportLength,
                         viewportBreadth, hbar.prefHeight(viewportBreadth));
@@ -1446,7 +1447,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             /*
             ** Positioning the ScrollBar
             */
-            if (!PlatformUtil.isEmbedded()) {
+            if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                 if (isVertical) {
                     vbar.resizeRelocate(viewportBreadth, 0, vbar.prefWidth(viewportLength), viewportLength);
                 } else {
@@ -1463,7 +1464,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         }
 
         if (corner.isVisible()) {
-            if (!PlatformUtil.isEmbedded()) {
+            if (!PlatformImpl.isSupported(ConditionalFeature.INPUT_TOUCH)) {
                 corner.resize(vbar.getWidth(), hbar.getHeight());
                 corner.relocate(hbar.getLayoutX() + hbar.getWidth(), vbar.getLayoutY() + vbar.getHeight());
             }
@@ -2019,7 +2020,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
                         T cell = cells.get(i);
                         positionCell(cell, getCellPosition(cell) + emptySize);
                     }
-                    adjustPosition(1.0f);
+                    setPosition(1.0f);
                 }
             }
 
@@ -2128,20 +2129,12 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         return pixelOffset - viewportOffset;
     }
 
-    /**
-     * Simply adjusts the position to the given value, clamped between 0 and 1
-     * inclusive.
-     */
-    private void adjustPosition(double pos) {
-        setPosition(com.sun.javafx.Utils.clamp(0, pos, 1));
-    }
-
     private void adjustPositionToIndex(int index) {
         int cellCount = getCellCount();
         if (cellCount <= 0) {
             setPosition(0.0f);
         } else {            
-            adjustPosition(((double)index) / cellCount);
+            setPosition(((double)index) / cellCount);
         }
     }
 
@@ -2240,14 +2233,14 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         return -(viewportLength * p);
     }
     
-    /**
-     * Adjust the position based on a chunk of pixels. The position is based
-     * on the start of the scrollbar position.
-     */
-    private void adjustByPixelChunk(double numPixels) {
-        setPosition(0);
-        adjustByPixelAmount(numPixels);
-    }
+//    /**
+//     * Adjust the position based on a chunk of pixels. The position is based
+//     * on the start of the scrollbar position.
+//     */
+//    private void adjustByPixelChunk(double numPixels) {
+//        setPosition(0);
+//        adjustByPixelAmount(numPixels);
+//    }
     // end of old PositionMapper code
     
     
