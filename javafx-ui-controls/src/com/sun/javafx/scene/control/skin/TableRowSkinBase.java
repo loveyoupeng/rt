@@ -28,17 +28,15 @@ package com.sun.javafx.scene.control.skin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.WeakHashMap;
 
-import javafx.collections.ListChangeListener;
-
-import com.sun.javafx.scene.control.behavior.CellBehaviorBase;
-import java.util.Map;
 import javafx.animation.FadeTransition;
 import javafx.beans.property.ObjectProperty;
-import javafx.collections.WeakListChangeListener;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
+import javafx.collections.WeakListChangeListener;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.VPos;
@@ -47,6 +45,9 @@ import javafx.scene.control.Control;
 import javafx.scene.control.IndexedCell;
 import javafx.scene.control.TableColumnBase;
 import javafx.util.Duration;
+
+import com.sun.javafx.scene.control.behavior.CellBehaviorBase;
+import com.sun.javafx.tk.Toolkit;
 
 /**
  */
@@ -360,10 +361,6 @@ public abstract class TableRowSkinBase<T,
         if ("ITEM".equals(p)) {
             updateCells = true;
             getSkinnable().requestLayout();
-            
-            // Required to fix RT-24725, but commented out as a performance leak
-            // when doing large-scale updating of items in a TableView
-            // getSkinnable().layout();
 //        } else if (p == "SPAN_MODEL") {
 //            // TODO update layout based on changes to span model
 //            spanModel = spanModelProperty().get();
@@ -374,16 +371,8 @@ public abstract class TableRowSkinBase<T,
     @Override protected void layoutChildren(double x, final double y,
             final double w, final double h) {
         
-        if (isDirty) {
-            recreateCells();
-            updateCells(true);
-            isDirty = false;
-        } else if (updateCells) {
-            updateCells(true);
-            updateCells = false;
-        }
+        checkState();
         if (cellsMap.isEmpty()) return;
-        
         
         ObservableList<? extends TableColumnBase> visibleLeafColumns = getVisibleLeafColumns();
         if (! visibleLeafColumns.isEmpty()) {
@@ -699,6 +688,9 @@ public abstract class TableRowSkinBase<T,
             return fixedCellLength;
         }
         
+        // fix for RT-29080
+        checkState();
+        
         // Support for RT-18467: making it easier to specify a height for
         // cells via CSS, where the desired height is less than the height
         // of the TableCells. Essentially, -fx-cell-size is given higher
@@ -716,21 +708,51 @@ public abstract class TableRowSkinBase<T,
             prefHeight = Math.max(prefHeight, tableCell.prefHeight(-1));
         }
         double ph = Math.max(prefHeight, Math.max(getCellSize(), getSkinnable().minHeight(-1)));
+        
         return ph;
+    }
+    
+    private void checkState() {
+        if (isDirty) {
+            recreateCells();
+            updateCells(true);
+            isDirty = false;
+        } else if (updateCells) {
+            updateCells(true);
+            updateCells = false;
+        }
     }
     
     private static final Duration FADE_DURATION = Duration.millis(200);
     
+    // There appears to be a memory leak when using the stub toolkit. Therefore,
+    // to prevent tests from failing we disable the animations below when the
+    // stub toolkit is being used.
+    // Filed as RT-29163.
+    private static boolean IS_STUB_TOOLKIT = Toolkit.getToolkit().toString().contains("StubToolkit");
+    
     private void fadeOut(final Node node) {
         if (node.getOpacity() < 1.0) return;
-        FadeTransition fader = new FadeTransition(FADE_DURATION, node);
+        
+        if (IS_STUB_TOOLKIT) {
+            node.setOpacity(0);
+            return;
+        }
+        
+        final FadeTransition fader = new FadeTransition(FADE_DURATION, node);
         fader.setToValue(0.0);
         fader.play();
     }
     
     private void fadeIn(final Node node) {
         if (node.getOpacity() > 0.0) return;
-        FadeTransition fader = new FadeTransition(FADE_DURATION, node);
+        
+        if (IS_STUB_TOOLKIT) {
+            node.setOpacity(1);
+            return;
+        }
+        
+        final FadeTransition fader = new FadeTransition(FADE_DURATION, node);
         fader.setToValue(1.0);
         fader.play();
     }
