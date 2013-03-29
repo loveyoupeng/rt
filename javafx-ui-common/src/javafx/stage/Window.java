@@ -86,8 +86,8 @@ public class Window implements EventTarget {
             new WindowBoundsAccessor() {
                 @Override
                 public void setLocation(Window window, double x, double y) {
-                    window.x.set(x);
-                    window.y.set(y);
+                    window.x.set(x - window.winTranslateX);
+                    window.y.set(y - window.winTranslateY);
                 }
 
                 @Override
@@ -230,13 +230,36 @@ public class Window implements EventTarget {
                     bounds.getMinY() + (bounds.getHeight() - getHeight())
                                            * CENTER_ON_SCREEN_Y_FRACTION;
 
-            x.set(centerX);
-            y.set(centerY);
+            x.set(centerX - winTranslateX);
+            y.set(centerY - winTranslateY);
             peerBoundsConfigurator.setLocation(centerX, centerY,
                                                CENTER_ON_SCREEN_X_FRACTION,
                                                CENTER_ON_SCREEN_Y_FRACTION);
             applyBounds();
         }
+    }
+
+    private double winTranslateX;
+    private double winTranslateY;
+
+    final void setWindowTranslate(final double translateX,
+                                  final double translateY) {
+        if (translateX != winTranslateX) {
+            winTranslateX = translateX;
+            peerBoundsConfigurator.setX(getX() + translateX, 0);
+        }
+        if (translateY != winTranslateY) {
+            winTranslateY = translateY;
+            peerBoundsConfigurator.setY(getY() + translateY, 0);
+        }
+    }
+
+    final double getWindowTranslateX() {
+        return winTranslateX;
+    }
+
+    final double getWindowTranslateY() {
+        return winTranslateY;
     }
 
     private boolean xExplicit = false;
@@ -252,7 +275,7 @@ public class Window implements EventTarget {
 
     public final void setX(double value) {
         x.set(value);
-        peerBoundsConfigurator.setX(value, 0);
+        peerBoundsConfigurator.setX(value + winTranslateX, 0);
         xExplicit = true;
     }
     public final double getX() { return x.get(); }
@@ -271,7 +294,7 @@ public class Window implements EventTarget {
 
     public final void setY(double value) {
         y.set(value);
-        peerBoundsConfigurator.setY(value, 0);
+        peerBoundsConfigurator.setY(value + winTranslateY, 0);
         yExplicit = true;
     }
     public final double getY() { return y.get(); }
@@ -730,8 +753,10 @@ public class Window implements EventTarget {
                     if (!xExplicit && !yExplicit) {
                         centerOnScreen();
                     } else {
-                        peerBoundsConfigurator.setLocation(getX(), getY(),
-                                                           0, 0);
+                        peerBoundsConfigurator.setLocation(
+                                getX() + winTranslateX,
+                                getY() + winTranslateY,
+                                0, 0);
                     }
 
                     // set peer bounds before the window is shown

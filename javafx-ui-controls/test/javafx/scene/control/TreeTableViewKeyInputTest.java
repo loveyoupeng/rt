@@ -29,6 +29,8 @@ import com.sun.javafx.Utils;
 import com.sun.javafx.scene.control.behavior.TreeTableViewAnchorRetriever;
 import com.sun.javafx.scene.control.infrastructure.KeyEventFirer;
 import com.sun.javafx.scene.control.infrastructure.KeyModifier;
+import com.sun.javafx.scene.control.infrastructure.StageLoader;
+import com.sun.javafx.scene.control.skin.TreeTableViewSkin;
 
 import static org.junit.Assert.*;
 
@@ -52,9 +54,7 @@ public class TreeTableViewKeyInputTest {
     
     private KeyEventFirer keyboard;
     
-    private Stage stage;
-    private Scene scene;
-    private Group group;
+    private StageLoader stageLoader;
     
     private final TreeTableColumn<String, String> col0 = new TreeTableColumn<String, String>("col0");
     private final TreeTableColumn<String, String> col1 = new TreeTableColumn<String, String>("col1");
@@ -118,18 +118,13 @@ public class TreeTableViewKeyInputTest {
         
         keyboard = new KeyEventFirer(tableView);
         
-        group = new Group();
-        scene = new Scene(group);
-        
-        stage = new Stage();
-        stage.setScene(scene);
-        
-        group.getChildren().setAll(tableView);
-        stage.show();
+        stageLoader = new StageLoader(tableView);
+        stageLoader.getStage().show();
     }
     
     @After public void tearDown() {
-        stage.hide();
+        tableView.getSkin().dispose();
+        stageLoader.dispose();
     }
     
     /***************************************************************************
@@ -139,8 +134,8 @@ public class TreeTableViewKeyInputTest {
     private String debug() {
         StringBuilder sb = new StringBuilder("Selected Cells: [");
         
-        List<TreeTablePosition> cells = sm.getSelectedCells();
-        for (TreeTablePosition tp : cells) {
+        List<TreeTablePosition<String,?>> cells = sm.getSelectedCells();
+        for (TreeTablePosition<String,?> tp : cells) {
             sb.append("(");
             sb.append(tp.getRow());
             sb.append(",");
