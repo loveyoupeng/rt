@@ -474,23 +474,27 @@ static jint getSwipeDirFromEvent(NSEvent *theEvent)
             [self sendJavaMouseEvent:eeEvent];
         }
 
-        jint modifiers = GetJavaModifiers(theEvent);
-        if (type != com_sun_glass_events_MouseEvent_UP)
-        {
-            switch (button)
+        jint modifiers = GetJavaKeyModifiers(theEvent);
+        if (type != com_sun_glass_events_MouseEvent_ENTER &&
+            type != com_sun_glass_events_MouseEvent_EXIT) {
+            modifiers |= GetJavaMouseModifiers([NSEvent pressedMouseButtons]);
+            if (type != com_sun_glass_events_MouseEvent_UP)
             {
-                case com_sun_glass_events_MouseEvent_BUTTON_LEFT:
-                    modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_PRIMARY;
-                    break;
-                case com_sun_glass_events_MouseEvent_BUTTON_RIGHT:
-                    modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_SECONDARY;
-                    break;
-                case com_sun_glass_events_MouseEvent_BUTTON_OTHER:
-                    modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_MIDDLE;
-                    break;
+                switch (button)
+                {
+                    case com_sun_glass_events_MouseEvent_BUTTON_LEFT:
+                        modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_PRIMARY;
+                        break;
+                    case com_sun_glass_events_MouseEvent_BUTTON_RIGHT:
+                        modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_SECONDARY;
+                        break;
+                    case com_sun_glass_events_MouseEvent_BUTTON_OTHER:
+                        modifiers |= com_sun_glass_events_KeyEvent_MODIFIER_BUTTON_MIDDLE;
+                        break;
+                }
             }
         }
-        
+                
         jboolean isSynthesized = JNI_FALSE;
         
         jboolean isPopupTrigger = JNI_FALSE;
@@ -646,7 +650,8 @@ static jint getSwipeDirFromEvent(NSEvent *theEvent)
             // Quirk in Firefox: If we have to generate a key-typed and this
             // event is a repeat we will also need to generate a fake RELEASE event
             // because we won't see a key-release.
-            if ([theEvent isARepeat]) {
+            if ([theEvent isARepeat] &&
+                [[self->nsView window] isKindOfClass:[GlassEmbeddedWindow class]]) {
                 SEND_KEY_EVENT(com_sun_glass_events_KeyEvent_RELEASE);
             }
         }
@@ -871,8 +876,7 @@ static jint getSwipeDirFromEvent(NSEvent *theEvent)
             }
         } else {
             NSArray *items = [pasteboard pasteboardItems];
-            // NOTE:  There is always a placeholder item on the pasteboard, subtract it
-            if ([items count] - 1 == 1)
+            if ([items count] == 1)
             {
                 image = [[NSImage alloc] initWithContentsOfFile:@"/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericDocumentIcon.icns"];
             }

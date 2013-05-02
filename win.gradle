@@ -42,10 +42,11 @@ if (!windows_tools.exists()) {
     windows_tools.getParentFile().mkdirs();
     windows_tools.createNewFile();
     ByteArrayOutputStream results = new ByteArrayOutputStream();
+    String winsdkDir = System.getenv().get("WINSDK_DIR");
     exec({
         environment([
-                "WINSDKPATH" : "",
-                "CONF"       : CONF, // TODO does this mean the generated properties must be reset when in a different configuration?
+                "WINSDKPATH" : winsdkDir == null ? "" : winsdkDir,
+                "CONF"       : "/$CONF", // TODO does this mean the generated properties must be reset when in a different configuration?
                 "VCARCH"     : IS_64 ? "amd64" : "x86",
                 "SDKARCH"    : IS_64 ? "/x64" : "/x86",
         ]);
@@ -102,8 +103,11 @@ ext.WINDOWS_NATIVE_COMPILE_ENVIRONMENT = [
         "DXSDK_DIR"            : WINDOWS_DXSDK_DIR
 ];
 
-defineProperty("CC", cygpath("$WINDOWS_VS_VSINSTALLDIR/VC/BIN/cl.exe"));
-defineProperty("LINK", cygpath("$WINDOWS_VS_VSINSTALLDIR/VC/BIN/link.exe"));
+String msvcBinDir = (IS_64
+                  ? "$WINDOWS_VS_VSINSTALLDIR/VC/BIN/amd64"
+                  : "$WINDOWS_VS_VSINSTALLDIR/VC/BIN")
+defineProperty("CC", cygpath("$msvcBinDir/cl.exe"));
+defineProperty("LINK", cygpath("$msvcBinDir/link.exe"));
 defineProperty("RC", cygpath("$WINDOWS_SDK_DIR/Bin/RC.Exe"));
 defineProperty("FXC", cygpath("$WINDOWS_DXSDK_DIR/utilities/bin/x86/fxc.exe"));
 defineProperty("MT", cygpath("$WINDOWS_SDK_DIR/Bin/mt.exe"));
