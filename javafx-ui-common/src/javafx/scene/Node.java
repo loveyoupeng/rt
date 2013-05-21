@@ -4544,6 +4544,9 @@ public abstract class Node implements EventTarget, Styleable {
             return false;
         }
         double t = -origZ / dirZ;
+        if (t < 0.0 && !pickRay.isParallel()) {
+            return false;
+        }
         double x = pickRay.getOriginNoClone().x + (pickRay.getDirectionNoClone().x * t);
         double y = pickRay.getOriginNoClone().y + (pickRay.getDirectionNoClone().y * t);
 
@@ -8354,7 +8357,7 @@ public abstract class Node implements EventTarget, Styleable {
     // package so that StyleHelper can get at it
     final ObservableSet<PseudoClass> pseudoClassStates = new PseudoClassState();
     /**
-     * @return An unmodifiable Set of active pseudo-class states
+     * @return The active pseudo-class states of this Node, wrapped in an unmodifiable ObservableSet
      */
     public final ObservableSet<PseudoClass> getPseudoClassStates() {
 

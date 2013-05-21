@@ -28,17 +28,19 @@ package com.sun.javafx.scene.control.skin.resources;
 import java.util.ResourceBundle;
 
 public final class ControlResources {
-    
-    private static ResourceBundle controlsResourceBundle;
-    
-    public static ResourceBundle getBundle() {
-        if (controlsResourceBundle == null) {
-            controlsResourceBundle = ResourceBundle.getBundle("com/sun/javafx/scene/control/skin/resources/controls");
-        }
-        return controlsResourceBundle;
-    }
-    
+
+    private static final String BASE_NAME = "com/sun/javafx/scene/control/skin/resources/controls";
+
+    // Do not cache the bundle here. It is cached by the ResourceBundle
+    // class and may be updated if the default locale changes.
+
+    /*
+     * Look up a string in the properties file corresponding to the
+     * default locale (i.e. the application's locale). If not found, the
+     * search then falls back to the base controls.properties file,
+     * containing the default string (usually English).
+     */
     public static String getString(String key) {
-        return getBundle().getString(key);
+        return ResourceBundle.getBundle(BASE_NAME).getString(key);
     }
 }

@@ -295,7 +295,7 @@ public abstract class Camera extends Node {
             ownerScene.markCameraDirty();
         }
         if (ownerSubScene != null && ownerSubScene != getSubScene()) {
-            ownerSubScene.markCameraDirty();
+            ownerSubScene.markContentDirty();
         }
     }
 
@@ -307,10 +307,7 @@ public abstract class Camera extends Node {
     Affine3D getCameraTransform() {
         if (!localToSceneValid) {
             localToSceneTx.setToIdentity();
-            // if the camera is not in scene, its transforms are ignored
-            if (getScene() != null) {
-                getLocalToSceneTransform().impl_apply(localToSceneTx);
-            }
+            getLocalToSceneTransform().impl_apply(localToSceneTx);
             localToSceneValid = true;
         }
         return localToSceneTx;
