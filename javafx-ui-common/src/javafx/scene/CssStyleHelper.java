@@ -68,6 +68,7 @@ import com.sun.javafx.css.Stylesheet;
 import com.sun.javafx.css.converters.FontConverter;
 import com.sun.javafx.css.parser.CSSParser;
 import sun.util.logging.PlatformLogger;
+import sun.util.logging.PlatformLogger.Level;
 
 import static com.sun.javafx.css.CalculatedValue.*;
 
@@ -78,7 +79,7 @@ final class CssStyleHelper {
 
     private static final PlatformLogger LOGGER = com.sun.javafx.Logging.getCSSLogger();
 
-    private CssStyleHelper() {  
+    private CssStyleHelper() {
         this.triggerStates = new PseudoClassState();
     }
 
@@ -103,7 +104,7 @@ final class CssStyleHelper {
             depth++;
             parent = parent.getStyleableParent();
         }
-                
+
         // The List<CacheEntry> should only contain entries for those
         // pseudo-class states that have styles. The StyleHelper's
         // pseudoclassStateMask is a bitmask of those pseudoclasses that
@@ -114,11 +115,11 @@ final class CssStyleHelper {
         // pseudo-class states that apply, a CacheEntry can be created or
         // fetched using only those pseudoclasses that matter.
         final PseudoClassState[] triggerStates = new PseudoClassState[depth];
-        
-        final StyleMap styleMap = 
+
+        final StyleMap styleMap =
                 StyleManager.getInstance().findMatchingStyles(node, triggerStates);
 
-        
+
         if (styleMap == null || styleMap.isEmpty()) {
 
             boolean mightInherit = false;
@@ -142,7 +143,7 @@ final class CssStyleHelper {
         final CssStyleHelper helper = new CssStyleHelper();
         helper.triggerStates.addAll(triggerStates[0]);
 
-        // make sure parent's transition states include the pseudo-classes 
+        // make sure parent's transition states include the pseudo-classes
         // found when matching selectors
         parent = node.getStyleableParent();
         for(int n=1; n<depth; n++) {
@@ -160,23 +161,23 @@ final class CssStyleHelper {
             // isn't any pseudo-class state that might trigger a state change
             if (triggerState != null && triggerState.size() > 0) {
 
-                // Create a StyleHelper for the parent, if necessary. 
+                // Create a StyleHelper for the parent, if necessary.
                 if (parentNode.styleHelper == null) {
                     parentNode.styleHelper = new CssStyleHelper();
                 }
                 parentNode.styleHelper.triggerStates.addAll(triggerState);
-                
-            }   
-            
+
+            }
+
             parent=parent.getStyleableParent();
-        }         
-        
+        }
+
         helper.cacheContainer = new CacheContainer(node, styleMap, depth);
         return helper;
     }
-    
+
     private CacheContainer cacheContainer;
-        
+
     private final static class CacheContainer {
 
         // Set internal internalState structures
@@ -188,7 +189,7 @@ final class CssStyleHelper {
             int ctr = 0;
             int[] smapIds = new int[depth];
             smapIds[ctr++] = this.smapId = styleMap.getId();
-            
+
             //
             // Create a set of StyleMap id's from the parent's smapIds.
             // The resulting smapIds array may have less than depth elements.
@@ -210,18 +211,18 @@ final class CssStyleHelper {
                     }
                 }
                 parent = parent.getStyleableParent();
-                
+
             }
 
             this.styleCacheKey = new StyleCache.Key(smapIds, ctr);
 
             CssMetaData<Styleable,Font> styleableFontProperty = null;
-            
+
             final List<CssMetaData<? extends Styleable, ?>> props = node.getCssMetaData();
             final int pMax = props != null ? props.size() : 0;
             for (int p=0; p<pMax; p++) {
                 final CssMetaData<? extends Styleable, ?> prop = props.get(p);
-            
+
                 if ("-fx-font".equals(prop.getProperty())) {
                     // unchecked!
                     styleableFontProperty = (CssMetaData<Styleable, Font>) prop;
@@ -233,7 +234,7 @@ final class CssStyleHelper {
             this.fontSizeCache = new HashMap<>();
 
             this.cssSetProperties = new HashMap<String,StyleableProperty>();
-        
+
         }
 
         private StyleMap getStyleMap(Styleable styleable) {
@@ -288,7 +289,7 @@ final class CssStyleHelper {
             }
         }
     }
-    
+
 
     private StyleMap getStyleMap(Styleable styleable) {
         if (cacheContainer == null || styleable == null) return null;
@@ -324,14 +325,14 @@ final class CssStyleHelper {
      * Called "triggerStates" since they would trigger a CSS update.
      */
     private PseudoClassState triggerStates = new PseudoClassState();
-    
-    boolean pseudoClassStateChanged(PseudoClass pseudoClass) {    
+
+    boolean pseudoClassStateChanged(PseudoClass pseudoClass) {
         return triggerStates.contains(pseudoClass);
-    }    
-    
+    }
+
     /**
      * Dynamic pseudo-class state of the node and its parents.
-     * Only valid during a pulse. 
+     * Only valid during a pulse.
      *
      * The StyleCacheEntry to choose depends on the Node's pseudo-class state
      * and the pseudo-class state of its parents. Without the parent
@@ -390,16 +391,16 @@ final class CssStyleHelper {
         System.arraycopy(retainedStates, 0, transitionStates, 0, count);
 
         return transitionStates;
-        
+
     }
-    
+
     ObservableMap<StyleableProperty<?>, List<Style>> observableStyleMap;
      /**
       * RT-17293
       */
      ObservableMap<StyleableProperty<?>, List<Style>> getObservableStyleMap() {
-         return (observableStyleMap != null) 
-             ? observableStyleMap 
+         return (observableStyleMap != null)
+             ? observableStyleMap
              : FXCollections.<StyleableProperty<?>, List<Style>>emptyObservableMap();
      }
 
@@ -409,7 +410,7 @@ final class CssStyleHelper {
      void setObservableStyleMap(ObservableMap<StyleableProperty<?>, List<Style>> observableStyleMap) {
          this.observableStyleMap = observableStyleMap;
      }
-          
+
     /**
      * Called by the Node whenever it has transitioned from one set of
      * pseudo-class states to another. This function will then lookup the
@@ -420,7 +421,7 @@ final class CssStyleHelper {
      * animations and that support is detectable via the API.
      */
     void transitionToState(Node node) {
-       
+
         if (cacheContainer == null) {
             return;
         }
@@ -428,7 +429,7 @@ final class CssStyleHelper {
         //
         // Styles that need lookup can be cached provided none of the styles
         // are from Node.style.
-        //                
+        //
         final StyleCache sharedCache = StyleManager.getInstance().getSharedCache(node, cacheContainer.styleCacheKey);
 
         if (sharedCache == null) {
@@ -477,33 +478,33 @@ final class CssStyleHelper {
 
         // RT-20643
         CssError.setCurrentScene(node.getScene());
-        
+
         // For each property that is settable, we need to do a lookup and
         // transition to that value.
         for(int n=0; n<max; n++) {
 
             @SuppressWarnings("unchecked") // this is a widening conversion
-            final CssMetaData<Styleable,Object> cssMetaData = 
+            final CssMetaData<Styleable,Object> cssMetaData =
                     (CssMetaData<Styleable,Object>)styleables.get(n);
-            
+
             if (observableStyleMap != null) {
                 final StyleableProperty styleableProperty = cssMetaData.getStyleableProperty(node);
                 if (styleableProperty != null && observableStyleMap.containsKey(styleableProperty)) {
                     observableStyleMap.remove(styleableProperty);
                 }
             }
-            
+
 
             // Skip the lookup if we know there isn't a chance for this property
             // to be set (usually due to a "bind").
             if (!cssMetaData.isSettable(node)) continue;
 
             final String property = cssMetaData.getProperty();
-            
-            // Create a List to hold the Styles if the node has 
+
+            // Create a List to hold the Styles if the node has
             // a Map<WritableValue, List<Style>>
-            final List<Style> styleList = (observableStyleMap != null) 
-                    ? new ArrayList<Style>() 
+            final List<Style> styleList = (observableStyleMap != null)
+                    ? new ArrayList<Style>()
                     : null;
 
             CalculatedValue calculatedValue = cacheEntry.get(property);
@@ -531,7 +532,7 @@ final class CssStyleHelper {
                 }
 
             }
-            
+
             // StyleableProperty#applyStyle might throw an exception and it is called
             // from two places in this try block.
             try {
@@ -546,26 +547,26 @@ final class CssStyleHelper {
 
                 //
                 // RT-19089
-                // If the current value of the property was set by CSS 
+                // If the current value of the property was set by CSS
                 // and there is no style for the property, then reset this
                 // property to its initial value. If it was not set by CSS
                 // then leave the property alone.
-                // 
+                //
                 if (calculatedValue == null || calculatedValue == SKIP) {
 
-                    // if the current value was set by CSS and there 
-                    // is no calculated value for the property, then 
+                    // if the current value was set by CSS and there
+                    // is no calculated value for the property, then
                     // there was no style for the property in the current
                     // state, so reset the property to its initial value.
                     if (styleableProperty != null) {
                         Object initial = cssMetaData.getInitialValue(node);
                         styleableProperty.applyStyle(null, initial);
-                    } 
+                    }
 
                     continue;
 
-                } 
-                
+                }
+
                 if (addToCache) {
 
                     // If we're not on the fastpath, then add the calculated
@@ -601,9 +602,9 @@ final class CssStyleHelper {
                 if (originOfCurrentValue == StyleOrigin.USER) {
                     if (originOfCalculatedValue == StyleOrigin.USER_AGENT) {
                         continue;
-                    }                
+                    }
                 }
-            
+
                 final Object value = calculatedValue.getValue();
                 final Object currentValue = styleableProperty.getValue();
 
@@ -613,7 +614,7 @@ final class CssStyleHelper {
                         ? currentValue.equals(value) == false
                         : value != null)) {
 
-                    if (LOGGER.isLoggable(PlatformLogger.FINER)) {
+                    if (LOGGER.isLoggable(Level.FINER)) {
                         LOGGER.finer(property + ", call applyStyle: " + styleableProperty + ", value =" +
                                 String.valueOf(value) + ", originOfCalculatedValue=" + originOfCalculatedValue);
                     }
@@ -627,7 +628,7 @@ final class CssStyleHelper {
 
             } catch (Exception e) {
 
-                // RT-27155: if setting value raises exception, reset value 
+                // RT-27155: if setting value raises exception, reset value
                 // the value to initial and thereafter skip setting the property
                 cacheEntry.put(property, null);
 
@@ -645,7 +646,7 @@ final class CssStyleHelper {
                 }
                 // TODO: use logger here
                 PlatformLogger logger = Logging.getCSSLogger();
-                if (logger.isLoggable(PlatformLogger.WARNING)) {
+                if (logger.isLoggable(Level.WARNING)) {
                     logger.warning(String.format("Failed to set css [%s]\n", cssMetaData), e);
                 }
             }
@@ -691,13 +692,13 @@ final class CssStyleHelper {
             final CascadingStyle s = styles.get(i);
             final Selector sel = s == null ? null : s.getSelector();
             if (sel == null) continue; // bail if the selector is null.
-//System.out.println(node.toString() + "\n\tstates=" + PseudoClassSet.getPseudoClasses(states) + "\n\tstateMatches? " + sel.stateMatches(node, states) + "\n\tsel=" + sel.toString());            
+//System.out.println(node.toString() + "\n\tstates=" + PseudoClassSet.getPseudoClasses(states) + "\n\tstateMatches? " + sel.stateMatches(node, states) + "\n\tsel=" + sel.toString());
             if (sel.stateMatches(styleable, states)) {
                 style = s;
                 break;
             }
         }
-        
+
         return style;
     }
 
@@ -720,10 +721,10 @@ final class CssStyleHelper {
                                    List<Style> styleList) {
 
         if (styleable.getConverter() == FontConverter.getInstance()) {
-        
+
             return lookupFont(node, styleable.getProperty(), false, styleList);
         }
-        
+
         final String property = styleable.getProperty();
 
         // Get the CascadingStyle which may apply to this particular property
@@ -736,12 +737,12 @@ final class CssStyleHelper {
         final List<CssMetaData<? extends Styleable, ?>> subProperties = styleable.getSubProperties();
         final int numSubProperties = (subProperties != null) ? subProperties.size() : 0;
         if (style == null) {
-            
+
             if (numSubProperties == 0) {
-                
+
                 return handleNoStyleFound(node, styleable,
                         originatingNode, cachedFont, styleList);
-                
+
             } else {
 
                 // If style is null then it means we didn't successfully find the
@@ -756,12 +757,12 @@ final class CssStyleHelper {
                 // sub styleables to avoid having the array grow.
                 Map<CssMetaData,Object> subs = null;
                 StyleOrigin origin = null;
-                
+
                 boolean isRelative = false;
-                
+
                 for (int i=0; i<numSubProperties; i++) {
                     CssMetaData subkey = subProperties.get(i);
-                    CalculatedValue constituent = 
+                    CalculatedValue constituent =
                         lookup(node, subkey, states,
                             originatingNode, cachedFont, styleList);
                     if (constituent != SKIP) {
@@ -776,11 +777,11 @@ final class CssStyleHelper {
                                 : constituent.getOrigin() != null) {
                             origin = constituent.getOrigin();
                         }
-                        
-                        // if the constiuent uses relative sizes, then 
+
+                        // if the constiuent uses relative sizes, then
                         // isRelative is true;
                         isRelative = isRelative || constituent.isRelative();
-                            
+
                     }
                 }
 
@@ -806,15 +807,15 @@ final class CssStyleHelper {
                         final CssError error = new CssError.PropertySetError(styleable, node, msg);
                         errors.add(error);
                     }
-                    if (LOGGER.isLoggable(PlatformLogger.WARNING)) {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("caught: ", cce);
                         LOGGER.warning("styleable = " + styleable);
                         LOGGER.warning("node = " + node.toString());
                     }
                     return SKIP;
                 }
-            }                
-            
+            }
+
         } else { // style != null
 
             // RT-10522:
@@ -847,14 +848,14 @@ final class CssStyleHelper {
 //                ", selector = \'" + style.selector.toString() + "\'" +
 //                ", node = " + node.toString());
 
-        if (styleList != null) { 
+        if (styleList != null) {
             styleList.add(style.getStyle());
         }
-        
+
         return calculateValue(style, node, styleable, states,
                 originatingNode, cachedFont, styleList);
     }
-    
+
     /**
      * Called when there is no style found.
      */
@@ -870,12 +871,12 @@ final class CssStyleHelper {
             StyleableProperty styleableProperty = cssMetaData.getStyleableProperty(node);
             StyleOrigin origin = styleableProperty != null ? styleableProperty.getStyleOrigin() : null;
 
-            // RT-16308: if there is no matching style and the user set 
+            // RT-16308: if there is no matching style and the user set
             // the property, do not look for inherited styles.
             if (origin == StyleOrigin.USER) {
 
                     return SKIP;
-                    
+
             }
 
             CascadingStyle style = getInheritedStyle(node, cssMetaData.getProperty());
@@ -935,12 +936,12 @@ final class CssStyleHelper {
 
     // helps with self-documenting the code
     static final Set<PseudoClass> NULL_PSEUDO_CLASS_STATE = null;
-    
+
     /**
      * Find the property among the styles that pertain to the Node
      */
     private CascadingStyle resolveRef(Styleable styleable, String property, Set<PseudoClass> states) {
-        
+
         final CascadingStyle style = getStyle(styleable, property, states);
         if (style != null) {
             return style;
@@ -986,8 +987,8 @@ final class CssStyleHelper {
             Set<PseudoClass> states,
             ObjectProperty<StyleOrigin> whence,
             List<Style> styleList) {
-        
-        
+
+
         //
         // either the value itself is a lookup, or the value contain a lookup
         //
@@ -999,31 +1000,31 @@ final class CssStyleHelper {
             if (val instanceof String) {
 
                 final String sval = (String)val;
-                
-                CascadingStyle resolved = 
+
+                CascadingStyle resolved =
                     resolveRef(styleable, sval, states);
 
                 if (resolved != null) {
-                    
+
                     if (styleList != null) {
                         final Style style = resolved.getStyle();
                         if (style != null && !styleList.contains(style)) {
                             styleList.add(style);
                         }
                     }
-                    
-                    // The origin of this parsed value is the greatest of 
+
+                    // The origin of this parsed value is the greatest of
                     // any of the resolved reference. If a resolved reference
                     // comes from an inline style, for example, then the value
                     // calculated from the resolved lookup should have inline
-                    // as its origin. Otherwise, an inline style could be 
+                    // as its origin. Otherwise, an inline style could be
                     // stored in shared cache.
                     final StyleOrigin wOrigin = whence.get();
                     final StyleOrigin rOrigin = resolved.getOrigin();
                     if (rOrigin != null && (wOrigin == null ||  wOrigin.compareTo(rOrigin) < 0)) {
                         whence.set(rOrigin);
-                    } 
-                    
+                    }
+
                     // the resolved value may itself need to be resolved.
                     // For example, if the value "color" resolves to "base",
                     // then "base" will need to be resolved as well.
@@ -1064,14 +1065,14 @@ final class CssStyleHelper {
         return parsedValue;
 
     }
-    
+
     private String getUnresolvedLookup(ParsedValueImpl resolved) {
 
         Object value = resolved.getValue();
 
         if (resolved.isLookup() && value instanceof String) {
             return (String)value;
-        } 
+        }
 
         if (value instanceof ParsedValueImpl[][]) {
             final ParsedValueImpl[][] layers = (ParsedValueImpl[][])value;
@@ -1091,17 +1092,17 @@ final class CssStyleHelper {
                 String unresolvedLookup = getUnresolvedLookup(layer[l]);
                 if (unresolvedLookup != null) return unresolvedLookup;
             }
-        }        
-        
+        }
+
         return null;
     }
-    
+
     private String formatUnresolvedLookupMessage(Styleable styleable, CssMetaData cssMetaData, Style style, ParsedValueImpl resolved) {
-        
+
         // find value that could not be looked up
         String missingLookup = resolved != null ? getUnresolvedLookup(resolved) : null;
         if (missingLookup == null) missingLookup = "a lookup value";
-        
+
         StringBuilder sbuf = new StringBuilder();
         sbuf.append("Could not resolve '")
             .append(missingLookup)
@@ -1109,7 +1110,7 @@ final class CssStyleHelper {
             .append(" while resolving lookups for '")
             .append(cssMetaData.getProperty())
             .append("'");
-        
+
         final Rule rule = style != null ? style.getDeclaration().getRule(): null;
         final Stylesheet stylesheet = rule != null ? rule.getStylesheet() : null;
         final java.net.URL url = stylesheet != null ? stylesheet.getUrl() : null;
@@ -1121,12 +1122,12 @@ final class CssStyleHelper {
             sbuf.append(" from inline style on " )
                 .append(styleable.toString());
         }
-        
+
         return sbuf.toString();
     }
 
     private String formatExceptionMessage(Styleable styleable, CssMetaData cssMetaData, Style style, Exception e) {
-        
+
         StringBuilder sbuf = new StringBuilder();
         sbuf.append("Caught ")
             .append(e.toString())
@@ -1134,7 +1135,7 @@ final class CssStyleHelper {
             .append(" while calculating value for '")
             .append(cssMetaData.getProperty())
             .append("'");
-        
+
         final Rule rule = style != null ? style.getDeclaration().getRule(): null;
         final Stylesheet stylesheet = rule != null ? rule.getStylesheet() : null;
         final java.net.URL url = stylesheet != null ? stylesheet.getUrl() : null;
@@ -1146,15 +1147,15 @@ final class CssStyleHelper {
             sbuf.append(" from inline style on " )
                 .append(styleable.toString());
         }
-        
+
         return sbuf.toString();
     }
-    
-    
+
+
     private CalculatedValue calculateValue(
-            final CascadingStyle style, 
+            final CascadingStyle style,
             final Styleable node,
-            final CssMetaData cssMetaData, 
+            final CssMetaData cssMetaData,
             final Set<PseudoClass> states,
             final Styleable originatingNode,
             final CalculatedValue fontFromCacheEntry,
@@ -1166,7 +1167,7 @@ final class CssStyleHelper {
             ObjectProperty<StyleOrigin> whence = new SimpleObjectProperty<StyleOrigin>(style.getOrigin());
             final ParsedValueImpl resolved =
                 resolveLookups(node, cssValue, states, whence, styleList);
-            
+
             try {
 
                 final String property = cssMetaData.getProperty();
@@ -1181,11 +1182,11 @@ final class CssStyleHelper {
 
                 //
                 // Avoid using a font calculated from a relative size
-                // to calculate a font with a relative size. 
+                // to calculate a font with a relative size.
                 // For example:
                 // Assume the default font size is 13 and we have a style with
-                // -fx-font-size: 1.5em, then the cacheEntry font value will 
-                // have a size of 13*1.5=19.5. 
+                // -fx-font-size: 1.5em, then the cacheEntry font value will
+                // have a size of 13*1.5=19.5.
                 // Now, when converting that same font size again in response
                 // to looking up a value for -fx-font, we do not want to use
                 // 19.5 as the font for relative size conversion since this will
@@ -1197,7 +1198,7 @@ final class CssStyleHelper {
 
                 if (isRelative && isFontProperty &&
                     (fontFromCacheEntry == null || fontFromCacheEntry.isRelative())) {
-                    
+
                     Styleable parent = node;
                     CalculatedValue childsCachedFont = fontFromCacheEntry;
                     do {
@@ -1246,7 +1247,7 @@ final class CssStyleHelper {
 
                 final StyleOrigin origin = whence.get();
                 return new CalculatedValue(val, origin, isRelative);
-                
+
             } catch (ClassCastException cce) {
                 final String msg = formatUnresolvedLookupMessage(node, cssMetaData, style.getStyle(),resolved);
                 List<CssError> errors = null;
@@ -1254,7 +1255,7 @@ final class CssStyleHelper {
                     final CssError error = new CssError.PropertySetError(cssMetaData, node, msg);
                     errors.add(error);
                 }
-                if (LOGGER.isLoggable(PlatformLogger.WARNING)) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning(msg);
                     LOGGER.fine("node = " + node.toString());
                     LOGGER.fine("cssMetaData = " + cssMetaData);
@@ -1268,7 +1269,7 @@ final class CssStyleHelper {
                     final CssError error = new CssError.PropertySetError(cssMetaData, node, msg);
                     errors.add(error);
                 }
-                if (LOGGER.isLoggable(PlatformLogger.WARNING)) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("caught: ", iae);
                     LOGGER.fine("styleable = " + cssMetaData);
                     LOGGER.fine("node = " + node.toString());
@@ -1281,7 +1282,7 @@ final class CssStyleHelper {
                     final CssError error = new CssError.PropertySetError(cssMetaData, node, msg);
                     errors.add(error);
                 }
-                if (LOGGER.isLoggable(PlatformLogger.WARNING)) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("caught: ", npe);
                     LOGGER.fine("styleable = " + cssMetaData);
                     LOGGER.fine("node = " + node.toString());
@@ -1290,13 +1291,13 @@ final class CssStyleHelper {
             } finally {
                 resolved.setResolved(null);
             }
-                
+
         }
         // either cssValue was null or cssValue's value was "null"
         return new CalculatedValue(null, style.getOrigin(), false);
-           
+
     }
-                
+
     private static final CssMetaData dummyFontProperty =
             new FontCssMetaData<Node>("-fx-font", Font.getDefault()) {
 
@@ -1310,7 +1311,7 @@ final class CssStyleHelper {
             return null;
         }
     };
-   
+
     private CalculatedValue getCachedFont(Styleable styleable) {
 
         if (styleable instanceof Node == false) return null;
@@ -1668,10 +1669,10 @@ final class CssStyleHelper {
      * Called from CssMetaData getMatchingStyles
      * @param node
      * @param styleableProperty
-     * @return 
+     * @return
      */
     List<Style> getMatchingStyles(Styleable node, CssMetaData styleableProperty) {
-        
+
         final List<CascadingStyle> styleList = new ArrayList<CascadingStyle>();
 
         getMatchingStyles(node, styleableProperty, styleList);
@@ -1680,7 +1681,7 @@ final class CssStyleHelper {
         if (subProperties != null) {
             for (int n=0,nMax=subProperties.size(); n<nMax; n++) {
                 final CssMetaData subProperty = subProperties.get(n);
-                getMatchingStyles(node, subProperty, styleList);                    
+                getMatchingStyles(node, subProperty, styleList);
             }
         }
 
@@ -1694,17 +1695,17 @@ final class CssStyleHelper {
 
         return matchingStyles;
     }
-    
+
     private void getMatchingStyles(Styleable node, CssMetaData styleableProperty, List<CascadingStyle> styleList) {
-        
+
         if (node != null) {
 
             String property = styleableProperty.getProperty();
             Node _node = node instanceof Node ? (Node)node : null;
             final Map<String, List<CascadingStyle>> smap = getCascadingStyles(_node);
             if (smap == null) return;
-            
-             List<CascadingStyle> styles = smap.get(property);            
+
+             List<CascadingStyle> styles = smap.get(property);
 
             if (styles != null) {
                 styleList.addAll(styles);
@@ -1718,41 +1719,41 @@ final class CssStyleHelper {
             if (styleableProperty.isInherits()) {
                 Styleable parent = node.getStyleableParent();
                 while (parent != null) {
-                    CssStyleHelper parentHelper = parent instanceof Node 
+                    CssStyleHelper parentHelper = parent instanceof Node
                             ? ((Node)parent).styleHelper
                             : null;
                     if (parentHelper != null) {
-                        parentHelper.getMatchingStyles(parent, styleableProperty, styleList); 
+                        parentHelper.getMatchingStyles(parent, styleableProperty, styleList);
                     }
                     parent = parent.getStyleableParent();
                 }
             }
-            
+
         }
 
     }
-    
+
     // Pretty much a duplicate of resolveLookups, but without the state
     private void getMatchingLookupStyles(Styleable node, ParsedValueImpl parsedValue, List<CascadingStyle> styleList) {
-                
+
         if (parsedValue.isLookup()) {
-            
+
             Object value = parsedValue.getValue();
-            
+
             if (value instanceof String) {
-                
+
                 final String property = (String)value;
                 // gather up any and all styles that contain this value as a property
                 Styleable parent = node;
                 do {
-                    final Node _parent = parent instanceof Node ? (Node)parent : null;                            
-                    final CssStyleHelper helper = _parent != null 
+                    final Node _parent = parent instanceof Node ? (Node)parent : null;
+                    final CssStyleHelper helper = _parent != null
                             ? _parent.styleHelper
                             : null;
                     if (helper != null) {
-                                             
+
                         final int start = styleList.size();
-                        
+
                         final Map<String, List<CascadingStyle>> smap = helper.getCascadingStyles(_parent);
                         if (smap != null) {
 
@@ -1763,20 +1764,20 @@ final class CssStyleHelper {
                             }
 
                         }
-                        
+
                         final int end = styleList.size();
-                        
+
                         for (int index=start; index<end; index++) {
                             final CascadingStyle style = styleList.get(index);
                             getMatchingLookupStyles(parent, style.getParsedValueImpl(), styleList);
                         }
                     }
-                                                                                    
+
                 } while ((parent = parent.getStyleableParent()) != null);
-            
+
             }
         }
-        
+
         // If the value doesn't contain any values that need lookup, then bail
         if (!parsedValue.isContainsLookups()) {
             return;
@@ -1803,5 +1804,5 @@ final class CssStyleHelper {
         }
 
     }
-    
+
 }
