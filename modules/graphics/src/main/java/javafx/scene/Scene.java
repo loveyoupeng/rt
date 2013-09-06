@@ -25,6 +25,7 @@
 
 package javafx.scene;
 
+import com.sun.javafx.tk.TKClipboard;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.ConditionalFeature;
@@ -2690,13 +2691,13 @@ public class Scene implements EventTarget {
          */
         @Override
         public TransferMode dragEnter(double x, double y, double screenX, double screenY,
-                                      TransferMode transferMode)
+                                      TransferMode transferMode, TKClipboard dragboard)
         {
             if (dndGesture == null) {
                 dndGesture = new DnDGesture();
             }
-            Dragboard dragboard = Dragboard.impl_createDragboard(impl_peer, false);
-            dndGesture.dragboard = dragboard;
+            Dragboard db = Dragboard.impl_createDragboard(dragboard);
+            dndGesture.dragboard = db;
             DragEvent dragEvent =
                     new DragEvent(DragEvent.ANY, dndGesture.dragboard, x, y, screenX, screenY,
                             transferMode, null, null, pick(x, y));
@@ -2778,12 +2779,14 @@ public class Scene implements EventTarget {
     class DragGestureListener implements TKDragGestureListener {
 
        @Override
-       public void dragGestureRecognized(double x, double y, double screenX, double screenY, int button) {
-           Dragboard dragboard = Dragboard.impl_createDragboard(impl_peer, false);
+       public void dragGestureRecognized(double x, double y, double screenX, double screenY,
+                                         int button, TKClipboard dragboard)
+       {
+           Dragboard db = Dragboard.impl_createDragboard(dragboard);
            dndGesture = new DnDGesture();
-           dndGesture.dragboard = dragboard;
+           dndGesture.dragboard = db;
            // TODO: support mouse buttons in DragEvent
-           DragEvent dragEvent = new DragEvent(DragEvent.ANY, dragboard, x, y, screenX, screenY,
+           DragEvent dragEvent = new DragEvent(DragEvent.ANY, db, x, y, screenX, screenY,
                    null, null, null, pick(x, y));
            dndGesture.processRecognized(dragEvent);
            dndGesture = null;
@@ -3166,7 +3169,8 @@ public class Scene implements EventTarget {
                     return dragboard;
                 }
             }
-            return Dragboard.impl_createDragboard(Scene.this.impl_peer, isDragSource);
+            TKClipboard dragboardPeer = impl_peer.createDragboard(isDragSource);
+            return Dragboard.impl_createDragboard(dragboardPeer);
         }
     }
 
