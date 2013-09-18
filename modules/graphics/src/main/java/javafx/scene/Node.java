@@ -2877,15 +2877,26 @@ public abstract class Node implements EventTarget, Styleable {
     }
 
     /**
+     * This is a special value that might be returned by {@link #getBaselineOffset()}.
+     * This means that the Parent (layout Pane) of this Node should use the height of this Node as a baseline.
+     */
+    public static final double BASELINE_OFFSET_SAME_AS_HEIGHT = Double.NEGATIVE_INFINITY;
+
+    /**
      * The 'alphabetic' (or 'roman') baseline offset from the node's layoutBounds.minY location
      * that should be used when this node is being vertically aligned by baseline with
-     * other nodes.  By default this returns the layoutBounds height of the node.  Subclasses
+     * other nodes.  By default this returns {@link #BASELINE_OFFSET_SAME_AS_HEIGHT} for resizable Nodes
+     * and layoutBounds height for non-resizable.  Subclasses
      * which contain text should override this method to return their actual text baseline offset.
      *
-     * @return offset of text baseline from layoutBounds.minY
+     * @return offset of text baseline from layoutBounds.minY for non-resizable Nodes or {@link #BASELINE_OFFSET_SAME_AS_HEIGHT} otherwise
      */
     public double getBaselineOffset() {
-        return getLayoutBounds().getHeight();
+        if (isResizable()) {
+            return BASELINE_OFFSET_SAME_AS_HEIGHT;
+        } else {
+            return getLayoutBounds().getHeight();
+        }
     }
 
     /**
@@ -8702,9 +8713,18 @@ public abstract class Node implements EventTarget, Styleable {
             // otherwise the styles this node uses will be incomplete (missing lookups, missing inherited styles, etc).
             // find the top-most parent whose flag is REAPPLY and start from there, if there is one.
             Parent _parent = getParent();
-            if(_parent != null && _parent.cssFlag == this.cssFlag) {
-                // TODO: danger of infinite loop here!
-                _parent.impl_processCSS();
+            Parent _topmostParent = null;
+            while(_parent != null) {
+                if (_parent.cssFlag == CssFlags.REAPPLY) {
+                    _topmostParent = _parent;
+                }
+                _parent = _parent.getParent();
+
+            }
+            // TODO: danger of infinite loop here!
+            if (_topmostParent != null) {
+                _topmostParent.impl_processCSS();
+                return;
             }
 
             // Match new styles if my own indicates I need to reapply
