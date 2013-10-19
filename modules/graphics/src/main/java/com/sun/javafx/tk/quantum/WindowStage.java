@@ -229,6 +229,13 @@ class WindowStage extends GlassStage {
      */
     @Override public void setScene(TKScene scene) {
         GlassScene oldScene = getScene();
+        if (oldScene == scene) {
+            // Nothing to do
+            return;
+        }
+        // RT-21465, RT-28490
+        // We don't support scene changes in full-screen mode.
+        exitFullScreen();
         super.setScene(scene);
         if (scene != null) {
             GlassScene newScene = getViewScene();
@@ -242,7 +249,6 @@ class WindowStage extends GlassStage {
                 ViewPainter.renderLock.unlock();
             }
             requestFocus();
-            applyFullScreen();
         } else {
             ViewPainter.renderLock.lock();
             try {

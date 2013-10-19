@@ -164,14 +164,14 @@ public class FXMLLoader {
 
         public void set(Object value) throws LoadException {
             if (this.value == null) {
-                throw new LoadException("Cannot set value on this element.");
+                throw constructLoadException("Cannot set value on this element.");
             }
 
             // Apply value to this element's properties
             Class<?> type = this.value.getClass();
             DefaultProperty defaultProperty = type.getAnnotation(DefaultProperty.class);
             if (defaultProperty == null) {
-                throw new LoadException("Element does not define a default property.");
+                throw constructLoadException("Element does not define a default property.");
             }
 
             getProperties().put(defaultProperty.value(), value);
@@ -220,7 +220,7 @@ public class FXMLLoader {
         }
 
         public void processCharacters() throws IOException {
-            throw new LoadException("Unexpected characters in input stream.");
+            throw constructLoadException("Unexpected characters in input stream.");
         }
 
         public void processInstancePropertyAttributes() throws IOException {
@@ -267,13 +267,13 @@ public class FXMLLoader {
                                 loadListener.readUnknownStaticPropertyAttribute(localName, value);
                             }
                         } else {
-                            throw new LoadException(localName + " is not a valid attribute.");
+                            throw constructLoadException(localName + " is not a valid attribute.");
                         }
                     }
 
                 }
             } else {
-                throw new LoadException(prefix + ":" + localName
+                throw constructLoadException(prefix + ":" + localName
                     + " is not a valid attribute.");
             }
         }
@@ -286,17 +286,17 @@ public class FXMLLoader {
                 Expression expression;
 
                 if (attribute.sourceType != null) {
-                    throw new LoadException("Cannot bind to static property.");
+                    throw constructLoadException("Cannot bind to static property.");
                 }
 
                 if (!isTyped()) {
-                    throw new LoadException("Cannot bind to untyped object.");
+                    throw constructLoadException("Cannot bind to untyped object.");
                 }
 
                 // TODO We may want to identify binding properties in processAttribute()
                 // and apply them after build() has been called
                 if (this.value instanceof Builder) {
-                    throw new LoadException("Cannot bind to builder property.");
+                    throw constructLoadException("Cannot bind to builder property.");
                 }
 
                 value = value.substring(BINDING_EXPRESSION_PREFIX.length(),
@@ -312,7 +312,7 @@ public class FXMLLoader {
                     ((Property<Object>)propertyModel).bind(new ExpressionValue(namespace, expression, type));
                 }
             } else if (isBidirectionalBindingExpression(value)) {
-                throw new UnsupportedOperationException("This feature is not currently enabled.");
+                throw constructLoadException(new UnsupportedOperationException("This feature is not currently enabled."));
             } else {
                 processValue(attribute.sourceType, attribute.name, value);
             }
@@ -371,13 +371,13 @@ public class FXMLLoader {
                         || aValue.startsWith(RESOURCE_KEY_PREFIX)
                         || aValue.startsWith(EXPRESSION_PREFIX)
                         || aValue.startsWith(BI_DIRECTIONAL_BINDING_PREFIX))) {
-                    throw new LoadException("Invalid escape sequence.");
+                    throw constructLoadException("Invalid escape sequence.");
                 }
                 return aValue;
             } else if (aValue.startsWith(RELATIVE_PATH_PREFIX)) {
                 aValue = aValue.substring(RELATIVE_PATH_PREFIX.length());
                 if (aValue.length() == 0) {
-                    throw new LoadException("Missing relative path.");
+                    throw constructLoadException("Missing relative path.");
                 }
                 if (aValue.startsWith(RELATIVE_PATH_PREFIX)) {
                     // The prefix was escaped
@@ -387,7 +387,7 @@ public class FXMLLoader {
                         if (aValue.charAt(0) == '/') {
                             final URL res = getClassLoader().getResource(aValue.substring(1));
                             if (res == null) {
-                                throw new LoadException("Invalid resource: " + aValue + " not found on the classpath");
+                                throw constructLoadException("Invalid resource: " + aValue + " not found on the classpath");
                             }
                             return res.toString();
                         } else {
@@ -401,7 +401,7 @@ public class FXMLLoader {
             } else if (aValue.startsWith(RESOURCE_KEY_PREFIX)) {
                 aValue = aValue.substring(RESOURCE_KEY_PREFIX.length());
                 if (aValue.length() == 0) {
-                    throw new LoadException("Missing resource key.");
+                    throw constructLoadException("Missing resource key.");
                 }
                 if (aValue.startsWith(RESOURCE_KEY_PREFIX)) {
                     // The prefix was escaped
@@ -410,10 +410,10 @@ public class FXMLLoader {
                 } else {
                     // Resolve the resource value
                     if (resources == null) {
-                        throw new LoadException("No resources specified.");
+                        throw constructLoadException("No resources specified.");
                     }
                     if (!resources.containsKey(aValue)) {
-                        throw new LoadException("Resource \"" + aValue + "\" not found.");
+                        throw constructLoadException("Resource \"" + aValue + "\" not found.");
                     }
 
                     return resources.getString(aValue);
@@ -421,7 +421,7 @@ public class FXMLLoader {
             } else if (aValue.startsWith(EXPRESSION_PREFIX)) {
                 aValue = aValue.substring(EXPRESSION_PREFIX.length());
                 if (aValue.length() == 0) {
-                    throw new LoadException("Missing expression.");
+                    throw constructLoadException("Missing expression.");
                 }
                 if (aValue.startsWith(EXPRESSION_PREFIX)) {
                     // The prefix was escaped
@@ -512,12 +512,12 @@ public class FXMLLoader {
                 handlerValue = handlerValue.substring(EXPRESSION_PREFIX.length());
 
                 if (handlerValue.length() == 0) {
-                    throw new LoadException("Missing expression reference.");
+                    throw constructLoadException("Missing expression reference.");
                 }
 
                 Object expression = Expression.get(namespace, KeyPath.parse(handlerValue));
                 if (expression == null) {
-                    throw new LoadException("Unable to resolve expression : $" + handlerValue);
+                    throw constructLoadException("Unable to resolve expression : $" + handlerValue);
                 }
                 return expression;
             }
@@ -530,7 +530,7 @@ public class FXMLLoader {
                 if (type.isInstance(expression)) {
                     return (T) expression;
                 }
-                throw new LoadException("Error resolving \"" + handlerValue +"\" expression."
+                throw constructLoadException("Error resolving \"" + handlerValue +"\" expression."
                         + "Does not point to a " + type.getName());
             }
             return null;
@@ -542,11 +542,11 @@ public class FXMLLoader {
 
                 if (!handlerName.startsWith(CONTROLLER_METHOD_PREFIX)) {
                     if (handlerName.length() == 0) {
-                        throw new LoadException("Missing controller method.");
+                        throw constructLoadException("Missing controller method.");
                     }
 
                     if (controller == null) {
-                        throw new LoadException("No controller specified.");
+                        throw constructLoadException("No controller specified.");
                     }
 
                     Method method = getControllerMethods().get(type).get(handlerName);
@@ -590,7 +590,7 @@ public class FXMLLoader {
 
                         if (eventHandler == null) {
                             if (handlerName.length() == 0 || scriptEngine == null) {
-                                throw new LoadException("Error resolving " + attribute.name + "='" + attribute.value
+                                throw constructLoadException("Error resolving " + attribute.name + "='" + attribute.value
                                         + "', either the event handler is not in the Namespace or there is an error in the script.");
                             }
 
@@ -611,7 +611,7 @@ public class FXMLLoader {
                 if (handler != null) {
                     list.addListener(new ObservableListChangeAdapter(handler));
                 } else {
-                    throw new LoadException("Controller method \"" + handlerValue + "\" not found.");
+                    throw constructLoadException("Controller method \"" + handlerValue + "\" not found.");
                 }
             } else if (handlerValue.startsWith(EXPRESSION_PREFIX)) {
                 Object listener = getExpressionObject(handlerValue);
@@ -620,7 +620,7 @@ public class FXMLLoader {
                 } else if (listener instanceof InvalidationListener) {
                     list.addListener((InvalidationListener) listener);
                 } else {
-                    throw new LoadException("Error resolving \"" + handlerValue + "\" expression."
+                    throw constructLoadException("Error resolving \"" + handlerValue + "\" expression."
                             + "Must be either ListChangeListener or InvalidationListener");
                 }
             }
@@ -633,7 +633,7 @@ public class FXMLLoader {
                 if (handler != null) {
                     map.addListener(new ObservableMapChangeAdapter(handler));
                 } else {
-                    throw new LoadException("Controller method \"" + handlerValue + "\" not found.");
+                    throw constructLoadException("Controller method \"" + handlerValue + "\" not found.");
                 }
             } else if (handlerValue.startsWith(EXPRESSION_PREFIX)) {
                 Object listener = getExpressionObject(handlerValue);
@@ -642,7 +642,7 @@ public class FXMLLoader {
                 } else if (listener instanceof InvalidationListener) {
                     map.addListener((InvalidationListener) listener);
                 } else {
-                    throw new LoadException("Error resolving \"" + handlerValue + "\" expression."
+                    throw constructLoadException("Error resolving \"" + handlerValue + "\" expression."
                             + "Must be either MapChangeListener or InvalidationListener");
                 }
             }
@@ -655,7 +655,7 @@ public class FXMLLoader {
                 if (handler != null) {
                     set.addListener(new ObservableSetChangeAdapter(handler));
                 } else {
-                    throw new LoadException("Controller method \"" + handlerValue + "\" not found.");
+                    throw constructLoadException("Controller method \"" + handlerValue + "\" not found.");
                 }
             } else if (handlerValue.startsWith(EXPRESSION_PREFIX)) {
                 Object listener = getExpressionObject(handlerValue);
@@ -664,7 +664,7 @@ public class FXMLLoader {
                 } else if (listener instanceof InvalidationListener) {
                     set.addListener((InvalidationListener) listener);
                 } else {
-                    throw new LoadException("Error resolving \"" + handlerValue + "\" expression."
+                    throw constructLoadException("Error resolving \"" + handlerValue + "\" expression."
                             + "Must be either SetChangeListener or InvalidationListener");
                 }
             }
@@ -680,7 +680,7 @@ public class FXMLLoader {
 
                 ObservableValue<Object> propertyModel = getValueAdapter().getPropertyModel(key);
                 if (propertyModel == null) {
-                    throw new LoadException(value.getClass().getName() + " does not define"
+                    throw constructLoadException(value.getClass().getName() + " does not define"
                             + " a property model for \"" + key + "\".");
                 }
 
@@ -700,7 +700,7 @@ public class FXMLLoader {
                                 }
                             });
                         } else {
-                            throw new LoadException("Controller method \"" + handlerValue + "\" not found.");
+                            throw constructLoadException("Controller method \"" + handlerValue + "\" not found.");
                         }
                     }
                 } else if (handlerValue.startsWith(EXPRESSION_PREFIX)) {
@@ -710,7 +710,7 @@ public class FXMLLoader {
                     } else if (listener instanceof InvalidationListener) {
                         propertyModel.addListener((InvalidationListener) listener);
                     } else {
-                        throw new LoadException("Error resolving \"" + handlerValue + "\" expression."
+                        throw constructLoadException("Error resolving \"" + handlerValue + "\" expression."
                                 + "Must be either ChangeListener or InvalidationListener");
                     }
                 }
@@ -805,7 +805,7 @@ public class FXMLLoader {
                 if (fxNSURI != null) {
                     String fxVersion = fxNSURI.substring(fxNSURI.lastIndexOf("/") + 1);
                     if (compareJFXVersions(FX_NAMESPACE_VERSION, fxVersion) < 0) {
-                        throw new LoadException("Loading FXML document of version " +
+                        throw constructLoadException("Loading FXML document of version " +
                                 fxVersion + " by JavaFX runtime supporting version " + FX_NAMESPACE_VERSION);
                     }
                 }
@@ -875,7 +875,7 @@ public class FXMLLoader {
                     valueAdapter.put(defaultPropertyName, text.trim());
                 }
             } else {
-                throw new LoadException(type.getName() + " does not have a default property.");
+                throw constructLoadException(type.getName() + " does not have a default property.");
             }
         }
 
@@ -887,12 +887,12 @@ public class FXMLLoader {
                 if (localName.equals(FX_ID_ATTRIBUTE)) {
                     // Verify that ID is a valid identifier
                     if (value.equals(NULL_KEYWORD)) {
-                        throw new LoadException("Invalid identifier.");
+                        throw constructLoadException("Invalid identifier.");
                     }
 
                     for (int i = 0, n = value.length(); i < n; i++) {
                         if (!Character.isJavaIdentifierPart(value.charAt(i))) {
-                            throw new LoadException("Invalid identifier.");
+                            throw constructLoadException("Invalid identifier.");
                         }
                     }
 
@@ -900,12 +900,12 @@ public class FXMLLoader {
 
                 } else if (localName.equals(FX_CONTROLLER_ATTRIBUTE)) {
                     if (current.parent != null) {
-                        throw new LoadException(FX_NAMESPACE_PREFIX + ":" + FX_CONTROLLER_ATTRIBUTE
+                        throw constructLoadException(FX_NAMESPACE_PREFIX + ":" + FX_CONTROLLER_ATTRIBUTE
                             + " can only be applied to root element.");
                     }
 
                     if (controller != null) {
-                        throw new LoadException("Controller value already specified.");
+                        throw constructLoadException("Controller value already specified.");
                     }
 
                     if (!staticLoad) {
@@ -913,7 +913,7 @@ public class FXMLLoader {
                         try {
                             type = getClassLoader().loadClass(value);
                         } catch (ClassNotFoundException exception) {
-                            throw new LoadException(exception);
+                            throw constructLoadException(exception);
                         }
 
                         try {
@@ -923,13 +923,13 @@ public class FXMLLoader {
                                 setController(controllerFactory.call(type));
                             }
                         } catch (InstantiationException exception) {
-                            throw new LoadException(exception);
+                            throw constructLoadException(exception);
                         } catch (IllegalAccessException exception) {
-                            throw new LoadException(exception);
+                            throw constructLoadException(exception);
                         }
                     }
                 } else {
-                    throw new LoadException("Invalid attribute.");
+                    throw constructLoadException("Invalid attribute.");
                 }
             } else {
                 super.processAttribute(prefix, localName, value);
@@ -981,15 +981,15 @@ public class FXMLLoader {
                 try {
                     factoryMethod = MethodUtil.getMethod(type, factory, new Class[] {});
                 } catch (NoSuchMethodException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 }
 
                 try {
                     value = MethodUtil.invoke(factoryMethod, null, new Object [] {});
                 } catch (IllegalAccessException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 } catch (InvocationTargetException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 }
             } else {
                 value = (builderFactory == null) ? null : builderFactory.getBuilder(type);
@@ -998,9 +998,9 @@ public class FXMLLoader {
                     try {
                         value = ReflectUtil.newInstance(type);
                     } catch (InstantiationException exception) {
-                        throw new LoadException(exception);
+                        throw constructLoadException(exception);
                     } catch (IllegalAccessException exception) {
-                        throw new LoadException(exception);
+                        throw constructLoadException(exception);
                     }
                 }
             }
@@ -1097,7 +1097,7 @@ public class FXMLLoader {
         @Override
         public Object constructValue() throws IOException {
             if (source == null) {
-                throw new LoadException(INCLUDE_SOURCE_ATTRIBUTE + " is required.");
+                throw constructLoadException(INCLUDE_SOURCE_ATTRIBUTE + " is required.");
             }
 
             URL location;
@@ -1105,11 +1105,11 @@ public class FXMLLoader {
             if (source.charAt(0) == '/') {
                 location = cl.getResource(source.substring(1));
                 if (location == null) {
-                    throw new LoadException("Cannot resolve path: " + source);
+                    throw constructLoadException("Cannot resolve path: " + source);
                 }
             } else {
                 if (FXMLLoader.this.location == null) {
-                    throw new LoadException("Base location is undefined.");
+                    throw constructLoadException("Base location is undefined.");
                 }
 
                 location = new URL(FXMLLoader.this.location, source);
@@ -1145,7 +1145,7 @@ public class FXMLLoader {
                         try {
                             field.set(FXMLLoader.this.controller, controller);
                         } catch (IllegalAccessException exception) {
-                            throw new LoadException(exception);
+                            throw constructLoadException(exception);
                         }
                     }
                 }
@@ -1180,12 +1180,12 @@ public class FXMLLoader {
         @Override
         public Object constructValue() throws LoadException {
             if (source == null) {
-                throw new LoadException(REFERENCE_SOURCE_ATTRIBUTE + " is required.");
+                throw constructLoadException(REFERENCE_SOURCE_ATTRIBUTE + " is required.");
             }
 
             KeyPath path = KeyPath.parse(source);
             if (!Expression.isDefined(namespace, path)) {
-                throw new LoadException("Value \"" + source + "\" does not exist.");
+                throw constructLoadException("Value \"" + source + "\" does not exist.");
             }
 
             return Expression.get(namespace, path);
@@ -1217,12 +1217,12 @@ public class FXMLLoader {
         @Override
         public Object constructValue() throws LoadException {
             if (source == null) {
-                throw new LoadException(COPY_SOURCE_ATTRIBUTE + " is required.");
+                throw constructLoadException(COPY_SOURCE_ATTRIBUTE + " is required.");
             }
 
             KeyPath path = KeyPath.parse(source);
             if (!Expression.isDefined(namespace, path)) {
-                throw new LoadException("Value \"" + source + "\" does not exist.");
+                throw constructLoadException("Value \"" + source + "\" does not exist.");
             }
 
             Object sourceValue = Expression.get(namespace, path);
@@ -1241,14 +1241,14 @@ public class FXMLLoader {
                     ReflectUtil.checkPackageAccess(sourceValueType);
                     value = constructor.newInstance(sourceValue);
                 } catch (InstantiationException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 } catch (IllegalAccessException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 } catch (InvocationTargetException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 }
             } else {
-                throw new LoadException("Can't copy value " + sourceValue + ".");
+                throw constructLoadException("Can't copy value " + sourceValue + ".");
             }
 
             return value;
@@ -1280,21 +1280,21 @@ public class FXMLLoader {
         @Override
         public Object constructValue() throws LoadException {
             if (type == null) {
-                throw new LoadException(ROOT_TYPE_ATTRIBUTE + " is required.");
+                throw constructLoadException(ROOT_TYPE_ATTRIBUTE + " is required.");
             }
 
             Class<?> type = getType(this.type);
 
             if (type == null) {
-                throw new LoadException(this.type + " is not a valid type.");
+                throw constructLoadException(this.type + " is not a valid type.");
             }
 
             Object value;
             if (root == null) {
-                throw new LoadException("Root hasn't been set. Use method setRoot() before load.");
+                throw constructLoadException("Root hasn't been set. Use method setRoot() before load.");
             } else {
                 if (!type.isAssignableFrom(root.getClass())) {
-                    throw new LoadException("Root is not an instance of "
+                    throw constructLoadException("Root is not an instance of "
                         + type.getName() + ".");
                 }
 
@@ -1313,11 +1313,11 @@ public class FXMLLoader {
 
         public PropertyElement(String name, Class<?> sourceType) throws LoadException {
             if (parent == null) {
-                throw new LoadException("Invalid root element.");
+                throw constructLoadException("Invalid root element.");
             }
 
             if (parent.value == null) {
-                throw new LoadException("Parent element does not support property elements.");
+                throw constructLoadException("Parent element does not support property elements.");
             }
 
             this.name = name;
@@ -1326,7 +1326,7 @@ public class FXMLLoader {
             if (sourceType == null) {
                 // The element represents an instance property
                 if (name.startsWith(EVENT_HANDLER_PREFIX)) {
-                    throw new LoadException("\"" + name + "\" is not a valid element name.");
+                    throw constructLoadException("\"" + name + "\" is not a valid element name.");
                 }
 
             Map<String, Object> parentProperties = parent.getProperties();
@@ -1342,7 +1342,7 @@ public class FXMLLoader {
             if (readOnly) {
                 Object value = parentProperties.get(name);
                 if (value == null) {
-                    throw new LoadException("Invalid property.");
+                    throw constructLoadException("Invalid property.");
                 }
 
                 updateValue(value);
@@ -1393,7 +1393,7 @@ public class FXMLLoader {
         public void processAttribute(String prefix, String localName, String value)
             throws IOException {
             if (!readOnly) {
-                throw new LoadException("Attributes are not supported for writable property elements.");
+                throw constructLoadException("Attributes are not supported for writable property elements.");
             }
 
             super.processAttribute(prefix, localName, value);
@@ -1426,11 +1426,11 @@ public class FXMLLoader {
     private class UnknownStaticPropertyElement extends Element {
         public UnknownStaticPropertyElement() throws LoadException {
             if (parent == null) {
-                throw new LoadException("Invalid root element.");
+                throw constructLoadException("Invalid root element.");
             }
 
             if (parent.value == null) {
-                throw new LoadException("Parent element does not support property elements.");
+                throw constructLoadException("Parent element does not support property elements.");
             }
         }
 
@@ -1470,7 +1470,7 @@ public class FXMLLoader {
             if (source != null && !staticLoad) {
                 int i = source.lastIndexOf(".");
                 if (i == -1) {
-                    throw new LoadException("Cannot determine type of script \""
+                    throw constructLoadException("Cannot determine type of script \""
                         + source + "\".");
                 }
 
@@ -1487,7 +1487,7 @@ public class FXMLLoader {
                 }
 
                 if (scriptEngine == null) {
-                    throw new LoadException("Unable to locate scripting engine for"
+                    throw constructLoadException("Unable to locate scripting engine for"
                         + " extension " + extension + ".");
                 }
 
@@ -1497,7 +1497,7 @@ public class FXMLLoader {
                         location = cl.getResource(source.substring(1));
                     } else {
                         if (FXMLLoader.this.location == null) {
-                            throw new LoadException("Base location is undefined.");
+                            throw constructLoadException("Base location is undefined.");
                         }
 
                         location = new URL(FXMLLoader.this.location, source);
@@ -1515,7 +1515,7 @@ public class FXMLLoader {
                         }
                     }
                 } catch (IOException exception) {
-                    throw new LoadException(exception);
+                    throw constructLoadException(exception);
                 }
             }
         }
@@ -1537,11 +1537,11 @@ public class FXMLLoader {
         @Override
         public void processCharacters() throws LoadException {
             if (source != null) {
-                throw new LoadException("Script source already specified.");
+                throw constructLoadException("Script source already specified.");
             }
 
             if (scriptEngine == null && !staticLoad) {
-                throw new LoadException("Page language not specified.");
+                throw constructLoadException("Page language not specified.");
             }
 
             updateValue(xmlStreamReader.getText());
@@ -1564,7 +1564,7 @@ public class FXMLLoader {
 
                 charset = Charset.forName(value);
             } else {
-                throw new LoadException(prefix == null ? localName : prefix + ":" + localName
+                throw constructLoadException(prefix == null ? localName : prefix + ":" + localName
                     + " is not a valid attribute.");
             }
         }
@@ -1585,7 +1585,7 @@ public class FXMLLoader {
         @Override
         public void processAttribute(String prefix, String localName, String value)
             throws LoadException{
-            throw new LoadException("Element does not support attributes.");
+            throw constructLoadException("Element does not support attributes.");
         }
     }
 
@@ -2382,12 +2382,10 @@ public class FXMLLoader {
         try {
             inputStream = location.openStream();
             value = load(inputStream);
-        } catch (IOException exception) {
-            logException(exception);
+        } catch (LoadException exception) {
             throw exception;
-        } catch (RuntimeException exception) {
-            logException(exception);
-            throw exception;
+        } catch (Exception exception) {
+            throw constructLoadException(exception);
         } finally {
             if (inputStream != null) {
                 inputStream.close();
@@ -2455,7 +2453,7 @@ public class FXMLLoader {
                 }
             };
         } catch (XMLStreamException exception) {
-            throw new LoadException(exception);
+            throw constructLoadException(exception);
         }
 
         // Push this loader onto the stack
@@ -2494,7 +2492,7 @@ public class FXMLLoader {
                 }
             }
         } catch (XMLStreamException exception) {
-            throw new LoadException(exception);
+            throw constructLoadException(exception);
         }
 
         if (controller != null) {
@@ -2510,7 +2508,7 @@ public class FXMLLoader {
                         locationField.set(controller, location);
                     } catch (IllegalAccessException exception) {
                         // TODO Throw when Initializable is deprecated/removed
-                        // throw new LoadException(exception);
+                        // throw constructLoadException(exception);
                     }
                 }
 
@@ -2520,7 +2518,7 @@ public class FXMLLoader {
                         resourcesField.set(controller, resources);
                     } catch (IllegalAccessException exception) {
                         // TODO Throw when Initializable is deprecated/removed
-                        // throw new LoadException(exception);
+                        // throw constructLoadException(exception);
                     }
                 }
 
@@ -2533,9 +2531,9 @@ public class FXMLLoader {
                         MethodUtil.invoke(initializeMethod, controller, new Object [] {});
                     } catch (IllegalAccessException exception) {
                         // TODO Throw when Initializable is deprecated/removed
-                        // throw new LoadException(exception);
+                        // throw constructLoadException(exception);
                     } catch (InvocationTargetException exception) {
-                        throw new LoadException(exception);
+                        throw constructLoadException(exception);
                     }
                 }
             }
@@ -2552,14 +2550,20 @@ public class FXMLLoader {
         classes.clear();
     }
 
-    private void logException(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null) {
-            message = exception.getClass().getName();
-        }
+    private LoadException constructLoadException(String message){
+        return new LoadException(message + constructFXMLTrace());
+    }
 
-        StringBuilder messageBuilder = new StringBuilder(message);
-        messageBuilder.append("\n");
+    private LoadException constructLoadException(Throwable cause) {
+        return new LoadException(constructFXMLTrace(), cause);
+    }
+
+    private LoadException constructLoadException(String message, Throwable cause){
+        return new LoadException(message + constructFXMLTrace(), cause);
+    }
+
+    private String constructFXMLTrace() {
+        StringBuilder messageBuilder = new StringBuilder("\n");
 
         for (FXMLLoader loader : loaders) {
             messageBuilder.append(loader.location.getPath());
@@ -2571,17 +2575,7 @@ public class FXMLLoader {
 
             messageBuilder.append("\n");
         }
-
-        StackTraceElement[] stackTrace = exception.getStackTrace();
-        if (stackTrace != null) {
-            for (int i = 0; i < stackTrace.length; i++) {
-                messageBuilder.append("  at ");
-                messageBuilder.append(stackTrace[i].toString());
-                messageBuilder.append("\n");
-            }
-        }
-
-        System.err.println(messageBuilder.toString());
+        return messageBuilder.toString();
     }
 
     /**
@@ -2602,6 +2596,7 @@ public class FXMLLoader {
      * @deprecated
      * @since JavaFX 2.1
      */
+    // SB-dependency: RT-21475 has been filed to track this
     public ParseTraceElement[] getParseTrace() {
         ParseTraceElement[] parseTrace = new ParseTraceElement[loaders.size()];
 
@@ -2626,7 +2621,7 @@ public class FXMLLoader {
 
     private void processLanguage() throws LoadException {
         if (scriptEngine != null) {
-            throw new LoadException("Page language already set.");
+            throw constructLoadException("Page language already set.");
         }
 
         String language = xmlStreamReader.getPIData();
@@ -2709,12 +2704,12 @@ public class FXMLLoader {
 
                         current = new UnknownStaticPropertyElement();
                     } else {
-                        throw new LoadException(localName + " is not a valid property.");
+                        throw constructLoadException(localName + " is not a valid property.");
                     }
                 }
             } else {
                 if (current == null && root != null) {
-                    throw new LoadException("Root value already specified.");
+                    throw constructLoadException("Root value already specified.");
                 }
 
                 Class<?> type = getType(localName);
@@ -2733,7 +2728,7 @@ public class FXMLLoader {
 
                     current = new UnknownTypeElement();
                 } else {
-                    throw new LoadException(localName + " is not a valid type.");
+                    throw constructLoadException(localName + " is not a valid type.");
                 }
             }
         } else if (prefix.equals(FX_NAMESPACE_PREFIX)) {
@@ -2774,10 +2769,10 @@ public class FXMLLoader {
 
                 current = new DefineElement();
             } else {
-                throw new LoadException(prefix + ":" + localName + " is not a valid element.");
+                throw constructLoadException(prefix + ":" + localName + " is not a valid element.");
             }
         } else {
-            throw new LoadException("Unexpected namespace prefix: " + prefix + ".");
+            throw constructLoadException("Unexpected namespace prefix: " + prefix + ".");
         }
     }
 
@@ -2807,7 +2802,7 @@ public class FXMLLoader {
         try {
             loadType(name, true);
         } catch (ClassNotFoundException exception) {
-            throw new LoadException(exception);
+            throw constructLoadException(exception);
         }
     }
 
@@ -2901,7 +2896,7 @@ public class FXMLLoader {
                             try {
                                 field.setAccessible(true);
                             } catch (SecurityException exception) {
-                                throw new LoadException(exception);
+                                throw constructLoadException(exception);
                             }
                         }
 
@@ -3011,7 +3006,7 @@ public class FXMLLoader {
                             try {
                                 method.setAccessible(true);
                             } catch (SecurityException exception) {
-                                throw new LoadException(exception);
+                                throw constructLoadException(exception);
                             }
                         }
 
