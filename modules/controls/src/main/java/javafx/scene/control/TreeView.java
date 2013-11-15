@@ -25,9 +25,8 @@
 
 package javafx.scene.control;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.lang.ref.SoftReference;
+import java.util.*;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
@@ -51,6 +50,7 @@ import javafx.event.WeakEventHandler;
 import com.sun.javafx.css.converters.SizeConverter;
 import com.sun.javafx.scene.control.skin.TreeViewSkin;
 import java.lang.ref.WeakReference;
+
 import javafx.application.Platform;
 import javafx.beans.DefaultProperty;
 import javafx.beans.property.ReadOnlyIntegerProperty;
@@ -118,6 +118,68 @@ import javafx.beans.value.WeakChangeListener;
  * generate {@link TreeCell} instances, which are used to represent an item in the
  * TreeView. See the {@link Cell} class documentation for a more complete
  * description of how to write custom Cells.
+ *
+ * <h3>Editing</h3>
+ * <p>This control supports inline editing of values, and this section attempts to
+ * give an overview of the available APIs and how you should use them.</p>
+ *
+ * <p>Firstly, cell editing most commonly requires a different user interface
+ * than when a cell is not being edited. This is the responsibility of the
+ * {@link Cell} implementation being used. For TreeView, this is the responsibility
+ * of the {@link #cellFactoryProperty() cell factory}. It is your choice whether the cell is
+ * permanently in an editing state (e.g. this is common for {@link CheckBox} cells),
+ * or to switch to a different UI when editing begins (e.g. when a double-click
+ * is received on a cell).</p>
+ *
+ * <p>To know when editing has been requested on a cell,
+ * simply override the {@link javafx.scene.control.Cell#startEdit()} method, and
+ * update the cell {@link javafx.scene.control.Cell#textProperty() text} and
+ * {@link javafx.scene.control.Cell#graphicProperty() graphic} properties as
+ * appropriate (e.g. set the text to null and set the graphic to be a
+ * {@link TextField}). Additionally, you should also override
+ * {@link Cell#cancelEdit()} to reset the UI back to its original visual state
+ * when the editing concludes. In both cases it is important that you also
+ * ensure that you call the super method to have the cell perform all duties it
+ * must do to enter or exit its editing mode.</p>
+ *
+ * <p>Once your cell is in an editing state, the next thing you are most probably
+ * interested in is how to commit or cancel the editing that is taking place. This is your
+ * responsibility as the cell factory provider. Your cell implementation will know
+ * when the editing is over, based on the user input (e.g. when the user presses
+ * the Enter or ESC keys on their keyboard). When this happens, it is your
+ * responsibility to call {@link Cell#commitEdit(Object)} or
+ * {@link Cell#cancelEdit()}, as appropriate.</p>
+ *
+ * <p>When you call {@link Cell#commitEdit(Object)} an event is fired to the
+ * TreeView, which you can observe by adding an {@link EventHandler} via
+ * {@link TreeView#setOnEditCommit(javafx.event.EventHandler)}. Similarly,
+ * you can also observe edit events for
+ * {@link TreeView#setOnEditStart(javafx.event.EventHandler) edit start}
+ * and {@link TreeView#setOnEditCancel(javafx.event.EventHandler) edit cancel}.</p>
+ *
+ * <p>By default the TreeView edit commit handler is non-null, with a default
+ * handler that attempts to overwrite the property value for the
+ * item in the currently-being-edited row. It is able to do this as the
+ * {@link Cell#commitEdit(Object)} method is passed in the new value, and this
+ * is passed along to the edit commit handler via the
+ * {@link EditEvent} that is fired. It is simply a matter of calling
+ * {@link EditEvent#getNewValue()} to retrieve this value.
+ *
+ * <p>It is very important to note that if you call
+ * {@link TreeView#setOnEditCommit(javafx.event.EventHandler)} with your own
+ * {@link EventHandler}, then you will be removing the default handler. Unless
+ * you then handle the writeback to the property (or the relevant data source),
+ * nothing will happen. You can work around this by using the
+ * {@link TreeView#addEventHandler(javafx.event.EventType, javafx.event.EventHandler)}
+ * method to add a {@link TreeView#EDIT_COMMIT_EVENT} {@link EventType} with
+ * your desired {@link EventHandler} as the second argument. Using this method,
+ * you will not replace the default implementation, but you will be notified when
+ * an edit commit has occurred.</p>
+ *
+ * <p>Hopefully this summary answers some of the commonly asked questions.
+ * Fortunately, JavaFX ships with a number of pre-built cell factories that
+ * handle all the editing requirements on your behalf. You can find these
+ * pre-built cell factories in the javafx.scene.control.cell package.</p>
  *
  * @see TreeItem
  * @see TreeCell
@@ -264,6 +326,10 @@ public class TreeView<T> extends Control {
     // layoutChildren method to determine whether the tree item count should
     // be recalculated.
     private boolean expandedItemCountDirty = true;
+
+    // Used in the getTreeItem(int row) method to act as a cache.
+    // See RT-26716 for the justification and performance gains.
+    private Map<Integer, SoftReference<TreeItem<T>>> treeItemCacheMap = new HashMap<>();
     
     
     /***************************************************************************
@@ -866,8 +932,19 @@ public class TreeView<T> extends Control {
      */
     public TreeItem<T> getTreeItem(int row) {
         // normalize the requested row based on whether showRoot is set
-        int r = isShowRoot() ? row : (row + 1);
-        return TreeUtil.getItem(getRoot(), r, expandedItemCountDirty);
+        final int _row = isShowRoot() ? row : (row + 1);
+
+        if (treeItemCacheMap.containsKey(_row)) {
+            SoftReference<TreeItem<T>> treeItemRef = treeItemCacheMap.get(_row);
+            TreeItem<T> treeItem = treeItemRef.get();
+            if (treeItem != null) {
+                return treeItem;
+            }
+        }
+
+        TreeItem<T> treeItem = TreeUtil.getItem(getRoot(), _row, expandedItemCountDirty);
+        treeItemCacheMap.put(_row, new SoftReference<>(treeItem));
+        return treeItem;
     }
 
     /** {@inheritDoc} */
@@ -883,6 +960,13 @@ public class TreeView<T> extends Control {
     
     private void updateExpandedItemCount(TreeItem<T> treeItem) {
         setExpandedItemCount(TreeUtil.updateExpandedItemCount(treeItem, expandedItemCountDirty, isShowRoot()));
+
+        if (expandedItemCountDirty) {
+            // this is a very inefficient thing to do, but for now having a cache
+            // is better than nothing at all...
+            treeItemCacheMap.clear();
+        }
+
         expandedItemCountDirty = false;
     }
 
@@ -1087,6 +1171,8 @@ public class TreeView<T> extends Control {
                 
                 final TreeItem<T> treeItem = e.getTreeItem();
                 if (treeItem == null) return;
+
+                treeView.expandedItemCountDirty = true;
                 
                 // we only shift selection from this row - everything before it
                 // is safe. We might change this below based on certain criteria
@@ -1165,7 +1251,6 @@ public class TreeView<T> extends Control {
                     }
                 }
                 
-                treeView.expandedItemCountDirty = true;
                 shiftSelection(startRow, shift, null);
             }
         };

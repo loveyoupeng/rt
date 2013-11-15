@@ -234,6 +234,10 @@ public class ScrollPaneSkin extends BehaviorSkinBase<ScrollPane, ScrollPaneBehav
         ScrollPane control = getSkinnable();
         scrollNode = control.getContent();
 
+        TraversalEngine traversalEngine = new TraversalEngine(getSkinnable(), false);
+        traversalEngine.addTraverseListener(this);
+        getSkinnable().setImpl_traversalEngine(traversalEngine);
+
         if (scrollNode != null) {
             scrollNode.layoutBoundsProperty().addListener(nodeListener);
             scrollNode.layoutBoundsProperty().addListener(boundsChangeListener);
@@ -487,7 +491,7 @@ public class ScrollPaneSkin extends BehaviorSkinBase<ScrollPane, ScrollPaneBehav
         ** area, the above dispatcher having removed the ScrollBars
         ** scroll event handling.
         */
-        getSkinnable().setOnScroll(new EventHandler<javafx.scene.input.ScrollEvent>() {
+        getSkinnable().addEventHandler(ScrollEvent.SCROLL, new EventHandler<javafx.scene.input.ScrollEvent>() {
             @Override public void handle(ScrollEvent event) {
                 if (IS_TOUCH_SUPPORTED) {
                     startSBReleasedAnimation();
@@ -568,7 +572,7 @@ public class ScrollPaneSkin extends BehaviorSkinBase<ScrollPane, ScrollPaneBehav
         ** there are certain animations that need to know if the touch is
         ** happening.....
         */
-        getSkinnable().setOnTouchPressed(new EventHandler<TouchEvent>() {
+        getSkinnable().addEventHandler(TouchEvent.TOUCH_PRESSED, new EventHandler<TouchEvent>() {
             @Override public void handle(TouchEvent e) {
                 touchDetected = true;
                 startSBReleasedAnimation();
@@ -576,16 +580,12 @@ public class ScrollPaneSkin extends BehaviorSkinBase<ScrollPane, ScrollPaneBehav
             }
         });
 
-        getSkinnable().setOnTouchReleased(new EventHandler<TouchEvent>() {
+        getSkinnable().addEventHandler(TouchEvent.TOUCH_RELEASED,new EventHandler<TouchEvent>() {
             @Override public void handle(TouchEvent e) {
                 touchDetected = false;
                 e.consume();
             }
         });
-
-        TraversalEngine traversalEngine = new TraversalEngine(getSkinnable(), false);
-        traversalEngine.addTraverseListener(this);
-        getSkinnable().setImpl_traversalEngine(traversalEngine);
 
         // ScrollPanes do not block all MouseEvents by default, unlike most other UI Controls.
         consumeMouseEvents(false);
