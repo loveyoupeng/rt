@@ -29,6 +29,7 @@ import static com.sun.javafx.scene.control.infrastructure.ControlTestUtils.asser
 import static javafx.scene.control.TreeTableColumn.SortType.ASCENDING;
 import static javafx.scene.control.TreeTableColumn.SortType.DESCENDING;
 import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.util.Comparator;
 import java.util.List;
@@ -2703,5 +2704,86 @@ public class TreeTableViewTest {
         } catch (ClassCastException e) {
             // if we get the exception, we're happy
         }
+    }
+
+    @Test public void test_rt26718() {
+        treeTableView.setRoot(new TreeItem("Root"));
+        treeTableView.getRoot().setExpanded(true);
+
+        for (int i = 0; i < 4; i++) {
+            TreeItem parent = new TreeItem("item - " + i);
+            treeTableView.getRoot().getChildren().add(parent);
+
+            for (int j = 0; j < 4; j++) {
+                TreeItem child = new TreeItem("item - " + i + " " + j);
+                parent.getChildren().add(child);
+            }
+        }
+
+        treeTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        final TreeItem item0 = treeTableView.getTreeItem(1);
+        final TreeItem item1 = treeTableView.getTreeItem(2);
+
+        assertEquals("item - 0", item0.getValue());
+        assertEquals("item - 1", item1.getValue());
+
+        item0.setExpanded(true);
+        item1.setExpanded(true);
+        Toolkit.getToolkit().firePulse();
+
+        treeTableView.getSelectionModel().selectRange(0, 8);
+        assertEquals(8, treeTableView.getSelectionModel().getSelectedIndices().size());
+        assertEquals(7, treeTableView.getSelectionModel().getSelectedIndex());
+        assertEquals(7, treeTableView.getFocusModel().getFocusedIndex());
+
+        // collapse item0 - but because the selected and focused indices are
+        // not children of item 0, they should remain where they are (but of
+        // course be shifted up). The bug was that focus was moving up to item0,
+        // which makes no sense
+        item0.setExpanded(false);
+        Toolkit.getToolkit().firePulse();
+        assertEquals(3, treeTableView.getSelectionModel().getSelectedIndex());
+        assertEquals(3, treeTableView.getFocusModel().getFocusedIndex());
+    }
+
+    @Test public void test_rt_34493() {
+        ObservableList<TreeItem<Person>> persons = FXCollections.observableArrayList(
+            new TreeItem<Person>(new Person("Jacob", "Smith", "jacob.smith@example.com"))
+        );
+
+        TreeTableView<Person> table = new TreeTableView<>();
+
+        TreeItem<Person> root = new TreeItem<Person>(new Person("Root", null, null));
+        root.setExpanded(true);
+        table.setRoot(root);
+        table.setShowRoot(false);
+        root.getChildren().setAll(persons);
+
+        TreeTableColumn first = new TreeTableColumn("First Name");
+        first.setCellValueFactory(new TreeItemPropertyValueFactory<Person, String>("firstName"));
+
+        TreeTableColumn last = new TreeTableColumn("Last Name");
+        last.setCellValueFactory(new TreeItemPropertyValueFactory<Person, String>("lastName"));
+
+        TreeTableColumn email = new TreeTableColumn("Email");
+        email.setCellValueFactory(new TreeItemPropertyValueFactory<Person, String>("email"));
+
+        table.getColumns().addAll(first, last, email);
+
+        // load the table
+        new StageLoader(table);
+
+        // resize the last column
+        last.impl_setWidth(400);
+        assertEquals(400, last.getWidth(), 0.0);
+
+        // hide the first column
+        table.getColumns().remove(first);
+        Toolkit.getToolkit().firePulse();
+
+        // the last column should still be 400px, not the default width or any
+        // other value (based on the width of the content in that column)
+        assertEquals(400, last.getWidth(), 0.0);
     }
 }

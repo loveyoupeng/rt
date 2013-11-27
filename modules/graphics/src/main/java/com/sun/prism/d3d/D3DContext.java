@@ -192,7 +192,12 @@ class D3DContext extends BaseShaderContext {
         long resourceHandle = ((D3DRenderTarget)target).getResourceHandle();
         int res = nSetRenderTarget(pContext, resourceHandle, depthTest, target.isAntiAliasing());
         validate(res);
-        resetLastClip(state);
+        // resetLastClip should be called only if render target was changed
+        // return value is S_FALSE (success with negative result)
+        // if render target wasn't changed
+        if (res == D3D_OK) {
+            resetLastClip(state);
+        }
 
         this.camera = camera;
         targetWidth = target.getPhysicalWidth();

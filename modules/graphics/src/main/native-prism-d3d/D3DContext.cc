@@ -592,9 +592,10 @@ HRESULT D3DContext::setDeviceParametersFor3D() {
         SUCCEEDED(res = pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE)) &&
         SUCCEEDED(res = pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE)) &&
         SUCCEEDED(res = pd3dDevice->SetRenderState(D3DRS_LIGHTING, TRUE)) &&
+        // TODO: 3D - RT-34415: [D3D 3D] Need a robust 3D states management for texture 
         // Set texture unit 0 to its default texture addressing mode for Prism
-        SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP)) &&
-        SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP)) &&
+        SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP)) &&
+        SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP)) &&
         // Set texture filter to bilinear for 3D rendering
         SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR)) &&
         SUCCEEDED(res = pd3dDevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR));
@@ -933,7 +934,7 @@ D3DContext::SetRenderTarget(IDirect3DSurface9 *pSurface,
             }
         } else if (!renderTargetChanged) {
             SAFE_RELEASE(pCurrentDepth);
-            return res; // Render target has not changed
+            return S_FALSE; // Indicates that call succeeded, but render target was not changed
         }
         SAFE_RELEASE(pCurrentDepth);
         pd3dDevice->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, msaa);
@@ -958,6 +959,8 @@ D3DContext::SetRenderTarget(IDirect3DSurface9 *pSurface,
     pixadjusty = +1.0f / descNew.Height;
     TraceLn1(NWT_TRACE_VERBOSE, "  current render target=0x%x", pSurface);
     TraceLn2(NWT_TRACE_VERBOSE, "      pixel adjustments=%f, %f", pixadjustx, pixadjusty);
+    if (SUCCEEDED(res) && !renderTargetChanged)
+        return S_FALSE; // Indicates that call succeeded, but render target was not changed
     return res;
 }
 

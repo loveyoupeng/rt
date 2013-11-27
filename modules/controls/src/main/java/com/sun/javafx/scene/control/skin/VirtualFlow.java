@@ -882,6 +882,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             lastHeight = -1;
         }
 
+        final boolean hasSizeChange = sizeChanged;
         boolean recreatedOrRebuilt = needsRebuildCells || needsRecreateCells || sizeChanged;
        
         needsRecreateCells = false;
@@ -912,6 +913,8 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         // any of this work. In particular, this can happen during startup
         if (width <= 0 || height <= 0) {
             addAllToPile();
+            lastWidth = width;
+            lastHeight = height;
             hbar.setVisible(false);
             vbar.setVisible(false);
             corner.setVisible(false);
@@ -1032,12 +1035,13 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
          * so that one will be executed every time.
          */
         boolean needTrailingCells = false;
-        boolean rebuild = cellNeedsLayout ||
+        boolean rebuild = cellNeedsLayout  ||
                 isVertical != lastVertical ||
-                cells.isEmpty() ||
-                getMaxPrefBreadth() == -1 ||
-                position != lastPosition ||
-                cellCount != lastCellCount;
+                cells.isEmpty()            ||
+                getMaxPrefBreadth() == -1  ||
+                position != lastPosition   ||
+                cellCount != lastCellCount ||
+                hasSizeChange;
 
         if (! rebuild) {
             if ((isVertical && height < lastHeight) || (! isVertical && width < lastWidth)) {

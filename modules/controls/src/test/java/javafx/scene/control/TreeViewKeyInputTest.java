@@ -1899,4 +1899,96 @@ public class TreeViewKeyInputTest {
         assertEquals(4, sm.getSelectedItems().size());
         assertTrue(fm.isFocused(3));
     }
+
+    @Test public void test_rt34200() {
+        final int items = 100;
+        root.getChildren().clear();
+        root.setExpanded(true);
+        for (int i = 0; i < items; i++) {
+            root.getChildren().add(new TreeItem<>("Row " + i));
+        }
+
+        new StageLoader(treeView);
+        final FocusModel fm = treeView.getFocusModel();
+        final MultipleSelectionModel sm = treeView.getSelectionModel();
+
+        sm.clearAndSelect(99);
+        treeView.scrollTo(99);
+        assertEquals(99, getAnchor());
+        assertEquals(99, fm.getFocusedIndex());
+
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.getShortcutKey(), KeyModifier.SHIFT);
+        Toolkit.getToolkit().firePulse();
+        assertEquals(99, getAnchor());
+        assertTrue(fm.getFocusedIndex() < 99);
+    }
+
+    @Test public void test_rt4369() {
+        final int items = 100;
+        root.getChildren().clear();
+        root.setExpanded(true);
+        for (int i = 0; i < items; i++) {
+            root.getChildren().add(new TreeItem<>("Row " + i));
+        }
+
+        new StageLoader(treeView);
+        final FocusModel fm = treeView.getFocusModel();
+        final MultipleSelectionModel sm = treeView.getSelectionModel();
+
+        sm.clearAndSelect(99);
+        treeView.scrollTo(99);
+        assertEquals(99, getAnchor());
+        assertEquals(99, fm.getFocusedIndex());
+
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+        Toolkit.getToolkit().firePulse();
+        assertEquals(99, getAnchor());
+        assertTrue(fm.getFocusedIndex() < 99);
+    }
+
+    @Test public void test_rt33894() {
+        final int items = 5;
+        root.getChildren().clear();
+        root.setExpanded(true);
+        for (int i = 0; i < items; i++) {
+            root.getChildren().add(new TreeItem<>("Row " + i));
+        }
+
+        new StageLoader(treeView);
+        final FocusModel fm = treeView.getFocusModel();
+        final MultipleSelectionModel sm = treeView.getSelectionModel();
+
+        sm.clearAndSelect(1);
+        assertEquals(1, getAnchor());
+        assertEquals(1, fm.getFocusedIndex());
+        assertEquals(1, sm.getSelectedIndex());
+
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.getShortcutKey());
+        Toolkit.getToolkit().firePulse();
+        assertEquals(1, getAnchor());
+        assertEquals(2, fm.getFocusedIndex());
+        assertEquals(1, sm.getSelectedIndex());
+
+        keyboard.doKeyPress(KeyCode.SPACE, KeyModifier.getShortcutKey(), KeyModifier.SHIFT);
+        Toolkit.getToolkit().firePulse();
+        assertEquals(2, getAnchor());
+        assertEquals(2, fm.getFocusedIndex());
+        assertEquals(2, sm.getSelectedIndex());
+        assertTrue(isSelected(1, 2));
+
+        keyboard.doKeyPress(KeyCode.UP, KeyModifier.getShortcutKey());
+        keyboard.doKeyPress(KeyCode.UP, KeyModifier.getShortcutKey());
+        Toolkit.getToolkit().firePulse();
+        assertEquals(2, getAnchor());
+        assertEquals(0, fm.getFocusedIndex());
+        assertEquals(2, sm.getSelectedIndex());
+        assertTrue(isSelected(1, 2));
+
+        keyboard.doKeyPress(KeyCode.SPACE, KeyModifier.getShortcutKey(), KeyModifier.SHIFT);
+        Toolkit.getToolkit().firePulse();
+        assertEquals(0, getAnchor());
+        assertEquals(0, fm.getFocusedIndex());
+        assertEquals(0, sm.getSelectedIndex());
+        assertTrue(isSelected(0, 1, 2));
+    }
 }

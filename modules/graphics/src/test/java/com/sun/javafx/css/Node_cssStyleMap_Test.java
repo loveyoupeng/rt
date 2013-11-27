@@ -50,6 +50,7 @@ import static org.junit.Assert.*;
 import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore ("Pending RT-34463")
 public class Node_cssStyleMap_Test {
     
     public Node_cssStyleMap_Test() {
@@ -97,7 +98,6 @@ public class Node_cssStyleMap_Test {
         return smap;
     }
     
-    @Ignore("RT-33919")
     @Test
     public void testStyleMapTracksChanges() {
                 

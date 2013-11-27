@@ -1290,6 +1290,7 @@ public final class QuantumToolkit extends Toolkit {
             }
 
             private void draw(Graphics g, int x, int y, int w, int h) {
+                g.setLights(params.lights);
                 g.setDepthBuffer(params.depthBuffer);
 
                 g.clear(getClearColor());
