@@ -35,6 +35,7 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ObjectPropertyBase;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.WritableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
@@ -516,7 +517,7 @@ public class TabPane extends Control {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TabPane n) {
-                return (StyleableProperty<Number>)n.tabMinWidthProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.tabMinWidthProperty();
             }
         };
 
@@ -531,7 +532,7 @@ public class TabPane extends Control {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TabPane n) {
-                return (StyleableProperty<Number>)n.tabMaxWidthProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.tabMaxWidthProperty();
             }
         };
 
@@ -546,7 +547,7 @@ public class TabPane extends Control {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TabPane n) {
-                return (StyleableProperty<Number>)n.tabMinHeightProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.tabMinHeightProperty();
             }
         };
 
@@ -561,7 +562,7 @@ public class TabPane extends Control {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TabPane n) {
-                return (StyleableProperty<Number>)n.tabMaxHeightProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.tabMaxHeightProperty();
             }
         };
 
@@ -643,42 +644,10 @@ public class TabPane extends Control {
                             if (tab.isSelected()) {
                                 tab.setSelected(false);
                                 final int tabIndex = c.getFrom();
-                                final int tabCount = tabPane.getTabs().size();
 
                                 // we always try to select the nearest, non-disabled
                                 // tab from the position of the closed tab.
-                                int i = 1;
-                                while (true) {
-                                    // look leftwards
-                                    int downPos = tabIndex - i;
-                                    if (downPos >= 0) {
-                                        Tab _tab = getModelItem(downPos);
-                                        System.out.println(_tab.getText() + " disabled: " + _tab.isDisabled() + ", disable: " + _tab.isDisable());
-                                        if (_tab != null && ! _tab.isDisable()) {
-                                            select(_tab);
-                                            break;
-                                        }
-                                    }
-
-                                    // look rightwards. We subtract one as we need
-                                    // to take into account that a tab has been removed
-                                    // and if we don't do this we'll miss the tab
-                                    // to the right of the tab (as it has moved into
-                                    // the removed tabs position).
-                                    int upPos = tabIndex + i - 1;
-                                    if (upPos < tabCount) {
-                                        Tab _tab = getModelItem(upPos);
-                                        if (_tab != null && ! _tab.isDisable()) {
-                                            select(_tab);
-                                            break;
-                                        }
-                                    }
-
-                                    if (downPos < 0 && upPos >= tabCount) {
-                                        break;
-                                    }
-                                    i++;
-                                }
+                                findNearestAvailableTab(tabIndex, true);
                             }
                         }
                     }
@@ -691,7 +660,9 @@ public class TabPane extends Control {
                     }
                 }
                 if (getSelectedIndex() == -1 && getSelectedItem() == null && tabPane.getTabs().size() > 0) {
-                    selectFirst();
+                    // we go looking for the first non-disabled tab, as opposed to
+                    // just selecting the first tab (fix for RT-36908)
+                    findNearestAvailableTab(0, true);
                 } else if (tabPane.getTabs().isEmpty()) {
                     clearSelection();
                 }
@@ -754,6 +725,50 @@ public class TabPane extends Control {
         @Override protected int getItemCount() {
             final ObservableList<Tab> items = tabPane.getTabs();
             return items == null ? 0 : items.size();
+        }
+
+        private Tab findNearestAvailableTab(int tabIndex, boolean doSelect) {
+            // we always try to select the nearest, non-disabled
+            // tab from the position of the closed tab.
+            final int tabCount = getItemCount();
+            int i = 1;
+            Tab bestTab = null;
+            while (true) {
+                // look leftwards
+                int downPos = tabIndex - i;
+                if (downPos >= 0) {
+                    Tab _tab = getModelItem(downPos);
+                    if (_tab != null && ! _tab.isDisable()) {
+                        bestTab = _tab;
+                        break;
+                    }
+                }
+
+                // look rightwards. We subtract one as we need
+                // to take into account that a tab has been removed
+                // and if we don't do this we'll miss the tab
+                // to the right of the tab (as it has moved into
+                // the removed tabs position).
+                int upPos = tabIndex + i - 1;
+                if (upPos < tabCount) {
+                    Tab _tab = getModelItem(upPos);
+                    if (_tab != null && ! _tab.isDisable()) {
+                        bestTab = _tab;
+                        break;
+                    }
+                }
+
+                if (downPos < 0 && upPos >= tabCount) {
+                    break;
+                }
+                i++;
+            }
+
+            if (doSelect && bestTab != null) {
+                select(bestTab);
+            }
+
+            return bestTab;
         }
     }
 

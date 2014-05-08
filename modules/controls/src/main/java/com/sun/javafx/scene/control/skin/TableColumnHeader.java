@@ -26,6 +26,7 @@
 package com.sun.javafx.scene.control.skin;
 
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.value.WritableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.WeakListChangeListener;
@@ -52,13 +53,15 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
-import javafx.util.Callback;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+
 import com.sun.javafx.css.converters.SizeConverter;
 import com.sun.javafx.scene.control.MultiplePropertyChangeListenerHandler;
+
 import static com.sun.javafx.scene.control.TableColumnSortTypeWrapper.getSortTypeName;
 import static com.sun.javafx.scene.control.TableColumnSortTypeWrapper.getSortTypeProperty;
 import static com.sun.javafx.scene.control.TableColumnSortTypeWrapper.isAscending;
@@ -99,7 +102,7 @@ public class TableColumnHeader extends Region {
     private NestedTableColumnHeader parentHeader;
 
     // work out where this column currently is within its parent
-    private Label label;
+    Label label;
 
     // sort order
     int sortPos = -1;
@@ -508,6 +511,13 @@ public class TableColumnHeader extends Region {
         label.setText(column.getText());
         label.setGraphic(column.getGraphic());
         label.setVisible(column.isVisible());
+
+        label.fontProperty().addListener((o, old, newValue) -> {
+            // The font has changed (probably due to CSS being applied), so we
+            // need to re-run the column resizing algorithm to ensure columns
+            // fit nicely based on their content and their header
+            getTableViewSkin().resizeColumnToFitContent(column, 30);
+        });
 
         // ---- container for the sort arrow (which is not supported on embedded
         // platforms)
@@ -961,7 +971,7 @@ public class TableColumnHeader extends Region {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TableColumnHeader n) {
-                return (StyleableProperty<Number>)n.sizeProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.sizeProperty();
             }
         };
 

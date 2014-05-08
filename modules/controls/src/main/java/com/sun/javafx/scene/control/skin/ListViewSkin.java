@@ -44,7 +44,6 @@ import javafx.scene.control.MultipleSelectionModel;
 import javafx.scene.control.SelectionModel;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
-import javafx.util.Callback;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -153,8 +152,13 @@ public class ListViewSkin<T> extends VirtualContainerBase<ListView<T>, ListViewB
             while (c.next()) {
                 if (c.wasReplaced()) {
                     // RT-28397: Support for when an item is replaced with itself (but
-                    // updated internal values that should be shown visually)
-                    itemCount = 0;
+                    // updated internal values that should be shown visually).
+                    // This code was updated for RT-36714 to not update all cells,
+                    // just those affected by the change
+                    for (int i = c.getFrom(); i < c.getTo(); i++) {
+                        flow.setCellDirty(i);
+                    }
+
                     break;
                 } else if (c.getRemovedSize() == itemCount) {
                     // RT-22463: If the user clears out an items list then we
@@ -394,8 +398,8 @@ public class ListViewSkin<T> extends VirtualContainerBase<ListView<T>, ListViewB
         ListCell<T> lastVisibleCell = flow.getLastVisibleCellWithinViewPort();
         if (lastVisibleCell == null) return -1;
 
-        final SelectionModel sm = getSkinnable().getSelectionModel();
-        final FocusModel fm = getSkinnable().getFocusModel();
+        final SelectionModel<T> sm = getSkinnable().getSelectionModel();
+        final FocusModel<T> fm = getSkinnable().getFocusModel();
         if (sm == null || fm == null) return -1;
 
         int lastVisibleCellIndex = lastVisibleCell.getIndex();
@@ -440,8 +444,8 @@ public class ListViewSkin<T> extends VirtualContainerBase<ListView<T>, ListViewB
         ListCell<T> firstVisibleCell = flow.getFirstVisibleCellWithinViewPort();
         if (firstVisibleCell == null) return -1;
 
-        final SelectionModel sm = getSkinnable().getSelectionModel();
-        final FocusModel fm = getSkinnable().getFocusModel();
+        final SelectionModel<T> sm = getSkinnable().getSelectionModel();
+        final FocusModel<T> fm = getSkinnable().getFocusModel();
         if (sm == null || fm == null) return -1;
 
         int firstVisibleCellIndex = firstVisibleCell.getIndex();
@@ -490,7 +494,7 @@ public class ListViewSkin<T> extends VirtualContainerBase<ListView<T>, ListViewB
                 return flow.getPrivateCell(rowIndex);
             }
             case SELECTED_ROWS: {
-                MultipleSelectionModel sm = getSkinnable().getSelectionModel();
+                MultipleSelectionModel<T> sm = getSkinnable().getSelectionModel();
                 ObservableList<Integer> indices = sm.getSelectedIndices();
                 List<Node> selection = new ArrayList<>(indices.size());
                 for (int i : indices) {

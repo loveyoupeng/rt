@@ -57,6 +57,7 @@ import javafx.util.Duration;
 import sun.util.logging.PlatformLogger;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 
 /**
@@ -750,7 +751,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
 //        addChangedListener(VERTICAL, listenerY);
 //        vbar.addChangedListener(ScrollBar.VALUE, listenerY);
 
-        ChangeListener listenerY = (ov, t, t1) -> {
+        ChangeListener<Number> listenerY = (ov, t, t1) -> {
             clipView.setClipY(isVertical() ? 0 : vbar.getValue());
         };
         vbar.valueProperty().addListener(listenerY);
@@ -942,6 +943,24 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
             lastHeight = -1;
         }
 
+        if (! dirtyCells.isEmpty()) {
+            int index;
+            while ((index = dirtyCells.nextSetBit(0)) != -1) {
+                T cell = cells.get(index);
+                // updateIndex(-1) works for TableView, but breaks ListView.
+                // For now, the TableView just does not use the dirtyCells API
+//                cell.updateIndex(-1);
+                if (cell != null) {
+                    cell.requestLayout();
+                }
+                dirtyCells.clear(index);
+            }
+
+            setMaxPrefBreadth(-1);
+            lastWidth = -1;
+            lastHeight = -1;
+        }
+
         final boolean hasSizeChange = sizeChanged;
         boolean recreatedOrRebuilt = needsRebuildCells || needsRecreateCells || sizeChanged;
 
@@ -952,7 +971,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
 
         if (needsCellsLayout) {
             for (int i = 0, max = cells.size(); i < max; i++) {
-                Cell cell = cells.get(i);
+                Cell<?> cell = cells.get(i);
                 if (cell != null) {
                     cell.requestLayout();
                 }
@@ -998,7 +1017,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
 
         if (!cellNeedsLayout) {
             for (int i = 0; i < cells.size(); i++) {
-                Cell cell = cells.get(i);
+                Cell<?> cell = cells.get(i);
                 cellNeedsLayout = cell.isNeedsLayout();
                 if (cellNeedsLayout) break;
             }
@@ -1665,7 +1684,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         // Note: Do not optimise this loop by pre-calculating the cells size and
         // storing that into a int value - this can lead to RT-32828
         for (int i = 0; i < cells.size(); i++) {
-            Cell cell = cells.get(i);
+            Cell<?> cell = cells.get(i);
             if (isVertical) {
                 cell.resize(size, cell.getHeight());
             } else {
@@ -2004,7 +2023,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
         }
     }
 
-    private boolean doesCellContainFocus(Cell c) {
+    private boolean doesCellContainFocus(Cell<?> c) {
         Scene scene = c.getScene();
         final Node focusOwner = scene == null ? null : scene.getFocusOwner();
 
@@ -2364,6 +2383,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
     private boolean needsRebuildCells = false; // when cell contents have changed
     private boolean needsCellsLayout = false;
     private boolean sizeChanged = false;
+    private final BitSet dirtyCells = new BitSet();
     
     public void reconfigureCells() {
         needsReconfigureCells = true;
@@ -2382,6 +2402,11 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
 
     public void requestCellLayout() {
         needsCellsLayout = true;
+        requestLayout();
+    }
+
+    public void setCellDirty(int index) {
+        dirtyCells.set(index);
         requestLayout();
     }
 
@@ -2598,7 +2623,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
 
         private final Rectangle clipRect;
 
-        public ClippedContainer(final VirtualFlow flow) {
+        public ClippedContainer(final VirtualFlow<?> flow) {
             if (flow == null) {
                 throw new IllegalArgumentException("VirtualFlow can not be null");
             }
@@ -2637,7 +2662,7 @@ public class VirtualFlow<T extends IndexedCell> extends Region {
      * <p>
      * This class is package private solely for the sake of testing.
      */
-    public static class ArrayLinkedList<T> extends AbstractList {
+    public static class ArrayLinkedList<T> extends AbstractList<T> {
         /**
          * The array list backing this class. We default the size of the array
          * list to be fairly large so as not to require resizing during normal

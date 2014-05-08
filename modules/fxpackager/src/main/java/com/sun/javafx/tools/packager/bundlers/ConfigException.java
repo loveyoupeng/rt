@@ -25,20 +25,13 @@
 
 package com.sun.javafx.tools.packager.bundlers;
 
-public class ConfigException extends Exception {
-    final String advice;
+public class ConfigException extends com.oracle.tools.packager.ConfigException {
 
     public ConfigException(String msg, String advice) {
-        super(msg);
-        this.advice = advice;
+        super(msg, advice);
     }
 
     public ConfigException(Exception cause) {
         super(cause);
-        this.advice = null;
-    }
-
-    public String getAdvice() {
-        return advice;
     }
 }

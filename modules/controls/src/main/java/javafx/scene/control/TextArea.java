@@ -30,12 +30,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.beans.value.WritableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.css.CssMetaData;
@@ -43,13 +45,14 @@ import javafx.css.StyleConverter;
 import javafx.css.StyleableBooleanProperty;
 import javafx.css.StyleableIntegerProperty;
 import javafx.css.StyleableProperty;
+
 import com.sun.javafx.binding.ExpressionHelper;
 import com.sun.javafx.collections.ListListenerHelper;
 import com.sun.javafx.collections.NonIterableChange;
 import com.sun.javafx.css.converters.SizeConverter;
 import com.sun.javafx.scene.control.skin.TextAreaSkin;
+
 import javafx.css.Styleable;
-import javafx.scene.accessibility.Action;
 import javafx.scene.accessibility.Attribute;
 import javafx.scene.accessibility.Role;
 
@@ -630,7 +633,7 @@ public class TextArea extends TextInputControl {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TextArea n) {
-                return (StyleableProperty<Number>)n.prefColumnCountProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.prefColumnCountProperty();
             }
         };
 
@@ -645,7 +648,7 @@ public class TextArea extends TextInputControl {
 
             @Override
             public StyleableProperty<Number> getStyleableProperty(TextArea n) {
-                return (StyleableProperty<Number>)n.prefRowCountProperty();
+                return (StyleableProperty<Number>)(WritableValue<Number>)n.prefRowCountProperty();
             }
         };
 
@@ -660,7 +663,7 @@ public class TextArea extends TextInputControl {
 
             @Override
             public StyleableProperty<Boolean> getStyleableProperty(TextArea n) {
-                return (StyleableProperty<Boolean>)n.wrapTextProperty();
+                return (StyleableProperty<Boolean>)(WritableValue<Boolean>)n.wrapTextProperty();
             }
         };
 

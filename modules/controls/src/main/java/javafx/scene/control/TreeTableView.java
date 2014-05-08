@@ -28,8 +28,8 @@ package javafx.scene.control;
 import com.sun.javafx.collections.MappingChange;
 import com.sun.javafx.collections.NonIterableChange;
 import com.sun.javafx.collections.annotations.ReturnsUnmodifiableCollection;
-
 import com.sun.javafx.scene.control.SelectedCellsMap;
+
 import javafx.beans.property.DoubleProperty;
 import javafx.css.CssMetaData;
 import javafx.css.PseudoClass;
@@ -65,6 +65,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.WeakChangeListener;
+import javafx.beans.value.WritableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.MapChangeListener;
@@ -1827,7 +1828,7 @@ public class TreeTableView<S> extends Control {
                     }
 
                     @Override public StyleableProperty<Number> getStyleableProperty(TreeTableView<?> n) {
-                        return (StyleableProperty<Number>) n.fixedCellSizeProperty();
+                        return (StyleableProperty<Number>)(WritableValue<Number>) n.fixedCellSizeProperty();
                     }
                 };
 
@@ -1897,7 +1898,7 @@ public class TreeTableView<S> extends Control {
                 return row != null ? row.accGetAttribute(attribute, parameters) : null;
             }
             case MULTIPLE_SELECTION: {
-                MultipleSelectionModel sm = getSelectionModel();
+                TreeTableViewSelectionModel<S> sm = getSelectionModel();
                 return sm != null && sm.getSelectionMode() == SelectionMode.MULTIPLE;
             }
 
@@ -3104,13 +3105,18 @@ public class TreeTableView<S> extends Control {
                         shift = - e.getTreeItem().previousExpandedDescendentCount + 1;
                     }
                 } else if (e.wasAdded()) {
-                    for (int i = 0; i < e.getAddedChildren().size(); i++) {
-                        TreeItem<S> item = e.getAddedChildren().get(i);
-                        row = treeTableView.getRow(item);
-                        
-                        if (item != null && row <= getFocusedIndex()) {
-//                            shift = e.getTreeItem().isExpanded() ? e.getAddedSize() : 0;
-                            shift += item.getExpandedDescendentCount(false);
+                    // get the TreeItem the event occurred on - we only need to
+                    // shift if the tree item is expanded
+                    TreeItem<S> eventTreeItem = e.getTreeItem();
+                    if (eventTreeItem.isExpanded()) {
+                        for (int i = 0; i < e.getAddedChildren().size(); i++) {
+                            // get the added item and determine the row it is in
+                            TreeItem<S> item = e.getAddedChildren().get(i);
+                            row = treeTableView.getRow(item);
+
+                            if (item != null && row <= getFocusedIndex()) {
+                                shift += item.getExpandedDescendentCount(false);
+                            }
                         }
                     }
                 } else if (e.wasRemoved()) {

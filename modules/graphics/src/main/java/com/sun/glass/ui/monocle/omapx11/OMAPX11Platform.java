@@ -23,8 +23,10 @@ package com.sun.glass.ui.monocle.omapx11;/*
  * questions.
  */
 
+import com.sun.glass.ui.monocle.AcceleratedScreen;
 import com.sun.glass.ui.monocle.NativeScreen;
 import com.sun.glass.ui.monocle.omap.OMAPPlatform;
+import com.sun.glass.ui.monocle.x11.X11AcceleratedScreen;
 import com.sun.glass.ui.monocle.x11.X11Screen;
 
 public class OMAPX11Platform extends OMAPPlatform {
@@ -32,6 +34,15 @@ public class OMAPX11Platform extends OMAPPlatform {
     @Override
     protected NativeScreen createScreen() {
         return new X11Screen(false);
+    }
+
+    @Override
+    public synchronized AcceleratedScreen getAcceleratedScreen(
+            int[] attributes) {
+        if (accScreen == null) {
+            accScreen = new X11AcceleratedScreen(attributes);
+        }
+        return accScreen;
     }
 
 }

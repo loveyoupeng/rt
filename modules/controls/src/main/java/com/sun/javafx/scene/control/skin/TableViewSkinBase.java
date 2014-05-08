@@ -28,9 +28,7 @@ package com.sun.javafx.scene.control.skin;
 import com.sun.javafx.scene.control.behavior.BehaviorBase;
 
 import javafx.beans.InvalidationListener;
-import javafx.beans.Observable;
 import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.MapChangeListener;
@@ -47,13 +45,11 @@ import javafx.util.Callback;
 import javafx.collections.WeakListChangeListener;
 import com.sun.javafx.scene.control.skin.resources.ControlResources;
 
-import java.util.ArrayList;
 import java.util.List;
 import javafx.beans.WeakInvalidationListener;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.value.WeakChangeListener;
-import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.VPos;
 
@@ -244,7 +240,17 @@ public abstract class TableViewSkinBase<M, S, C extends Control, B extends Behav
         while (c.next()) {
             if (c.wasReplaced()) {
                 // RT-28397: Support for when an item is replaced with itself (but
-                // updated internal values that should be shown visually)
+                // updated internal values that should be shown visually).
+
+                // The ListViewSkin equivalent code here was updated to use the
+                // flow.setDirtyCell(int) API, but it was left alone here, otherwise
+                // our unit test for RT-36220 fails as we do not handle the case
+                // where the TableCell gets updated (only the TableRow does).
+                // Ideally we would use the dirtyCell API:
+                //
+                // for (int i = c.getFrom(); i < c.getTo(); i++) {
+                //     flow.setCellDirty(i);
+                // }
                 itemCount = 0;
                 break;
             } else if (c.getRemovedSize() == itemCount) {
@@ -489,7 +495,7 @@ public abstract class TableViewSkinBase<M, S, C extends Control, B extends Behav
 
     private boolean isLeadIndex(boolean isFocusDriven, int index) {
         final TableSelectionModel<S> sm = getSelectionModel();
-        final FocusModel fm = getFocusModel();
+        final FocusModel<S> fm = getFocusModel();
 
         return (isFocusDriven && fm.getFocusedIndex() == index)
                 || (! isFocusDriven && sm.getSelectedIndex() == index);

@@ -25,4 +25,4 @@
 
 package com.sun.javafx.tools.packager.bundlers;
 
-public class UnsupportedPlatformException extends Exception {}
+public class UnsupportedPlatformException extends com.oracle.tools.packager.UnsupportedPlatformException {}
