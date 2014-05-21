@@ -29,8 +29,10 @@ import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.HBox;
 import javafx.util.Callback;
 import java.util.List;
 import com.sun.javafx.PlatformUtil;
@@ -3530,5 +3532,139 @@ public class TableViewKeyInputTest {
 
         // reset the exception handler
         Thread.currentThread().setUncaughtExceptionHandler(exceptionHandler);
+    }
+
+    @Test public void test_rt_36942() {
+        // get the current exception handler before replacing with our own,
+        // as ListListenerHelp intercepts the exception otherwise
+        final Thread.UncaughtExceptionHandler exceptionHandler = Thread.currentThread().getUncaughtExceptionHandler();
+        Thread.currentThread().setUncaughtExceptionHandler((t, e) -> fail("We don't expect any exceptions in this test!"));
+
+        final int items = 3;
+        tableView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            tableView.getItems().add("Row " + i);
+        }
+
+        TableColumn<String, String> col = new TableColumn<>("Column");
+        col.setCellValueFactory(param -> new ReadOnlyStringWrapper(param.getValue()));
+        tableView.getColumns().setAll(col);
+
+        MultipleSelectionModel<String> sm = tableView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        ObservableList<String> selectedItems = sm.getSelectedItems();
+
+        TableView<String> selectedItemsTableView = new TableView<>(selectedItems);
+        selectedItemsTableView.getColumns().setAll(col);
+
+        HBox root = new HBox(5, tableView, selectedItemsTableView);
+
+        StageLoader sl = new StageLoader(root);
+
+        sm.select(0);
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1,2
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1,2,Exception?
+
+        sl.dispose();
+
+        // reset the exception handler
+        Thread.currentThread().setUncaughtExceptionHandler(exceptionHandler);
+    }
+
+    @Test public void test_rt_37130_pageUpAtTop() {
+        final int items = 100;
+        tableView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            tableView.getItems().add("Row " + i);
+        }
+
+        TableColumn<String, String> col = new TableColumn<>("Column");
+        col.setCellValueFactory(param -> new ReadOnlyStringWrapper(param.getValue()));
+        tableView.getColumns().setAll(col);
+
+        TableSelectionModel<String> sm = tableView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        sm.setCellSelectionEnabled(true);
+
+        StageLoader sl = new StageLoader(tableView);
+
+        sm.select(5, col);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageUpAtBottom() {
+        final int items = 100;
+        tableView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            tableView.getItems().add("Row " + i);
+        }
+
+        TableColumn<String, String> col = new TableColumn<>("Column");
+        col.setCellValueFactory(param -> new ReadOnlyStringWrapper(param.getValue()));
+        tableView.getColumns().setAll(col);
+
+        TableSelectionModel<String> sm = tableView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        sm.setCellSelectionEnabled(true);
+
+        StageLoader sl = new StageLoader(tableView);
+
+        sm.select(95, col);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageDownAtTop() {
+        final int items = 100;
+        tableView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            tableView.getItems().add("Row " + i);
+        }
+
+        TableColumn<String, String> col = new TableColumn<>("Column");
+        col.setCellValueFactory(param -> new ReadOnlyStringWrapper(param.getValue()));
+        tableView.getColumns().setAll(col);
+
+        TableSelectionModel<String> sm = tableView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        sm.setCellSelectionEnabled(true);
+
+        StageLoader sl = new StageLoader(tableView);
+
+        sm.select(5, col);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageDownAtBottom() {
+        final int items = 100;
+        tableView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            tableView.getItems().add("Row " + i);
+        }
+
+        TableColumn<String, String> col = new TableColumn<>("Column");
+        col.setCellValueFactory(param -> new ReadOnlyStringWrapper(param.getValue()));
+        tableView.getColumns().setAll(col);
+
+        TableSelectionModel<String> sm = tableView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        sm.setCellSelectionEnabled(true);
+
+        StageLoader sl = new StageLoader(tableView);
+
+        sm.select(95, col);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+
+        sl.dispose();
     }
 }

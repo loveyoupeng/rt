@@ -27,6 +27,8 @@ package javafx.scene.control;
 
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
+import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.scene.input.KeyCode;
 import java.util.List;
@@ -38,6 +40,7 @@ import com.sun.javafx.scene.control.infrastructure.KeyModifier;
 import com.sun.javafx.scene.control.infrastructure.StageLoader;
 import com.sun.javafx.scene.control.infrastructure.VirtualFlowTestUtils;
 import com.sun.javafx.tk.Toolkit;
+import javafx.scene.layout.HBox;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -2002,5 +2005,114 @@ public class ListViewKeyInputTest {
 
         // reset the exception handler
         Thread.currentThread().setUncaughtExceptionHandler(exceptionHandler);
+    }
+
+    @Test public void test_rt_36942() {
+        // get the current exception handler before replacing with our own,
+        // as ListListenerHelp intercepts the exception otherwise
+        final Thread.UncaughtExceptionHandler exceptionHandler = Thread.currentThread().getUncaughtExceptionHandler();
+        Thread.currentThread().setUncaughtExceptionHandler((t, e) -> fail("We don't expect any exceptions in this test!"));
+
+        final int items = 3;
+        listView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            listView.getItems().add("Row " + i);
+        }
+
+        MultipleSelectionModel<String> sm = listView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+        ObservableList<String> selectedItems = sm.getSelectedItems();
+
+        ListView<String> selectedItemsListView = new ListView<>(selectedItems);
+
+        HBox root = new HBox(5, listView, selectedItemsListView);
+
+        StageLoader sl = new StageLoader(root);
+
+        sm.select(0);
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1,2
+        keyboard.doKeyPress(KeyCode.DOWN, KeyModifier.SHIFT); // 0,1,2,Exception?
+
+        sl.dispose();
+
+        // reset the exception handler
+        Thread.currentThread().setUncaughtExceptionHandler(exceptionHandler);
+    }
+
+    @Test public void test_rt_37130_pageUpAtTop() {
+        final int items = 100;
+        listView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            listView.getItems().add("Row " + i);
+        }
+
+        MultipleSelectionModel<String> sm = listView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+
+        StageLoader sl = new StageLoader(listView);
+
+        sm.select(5);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageUpAtBottom() {
+        final int items = 100;
+        listView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            listView.getItems().add("Row " + i);
+        }
+
+        MultipleSelectionModel<String> sm = listView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+
+        StageLoader sl = new StageLoader(listView);
+
+        sm.select(95);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_UP, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageDownAtTop() {
+        final int items = 100;
+        listView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            listView.getItems().add("Row " + i);
+        }
+
+        MultipleSelectionModel<String> sm = listView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+
+        StageLoader sl = new StageLoader(listView);
+
+        sm.select(5);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+
+        sl.dispose();
+    }
+
+    @Test public void test_rt_37130_pageDownAtBottom() {
+        final int items = 100;
+        listView.getItems().clear();
+        for (int i = 0; i < items; i++) {
+            listView.getItems().add("Row " + i);
+        }
+
+        MultipleSelectionModel<String> sm = listView.getSelectionModel();
+        sm.setSelectionMode(SelectionMode.MULTIPLE);
+
+        StageLoader sl = new StageLoader(listView);
+
+        sm.select(95);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+        keyboard.doKeyPress(KeyCode.PAGE_DOWN, KeyModifier.SHIFT);
+
+        sl.dispose();
     }
 }

@@ -48,7 +48,48 @@ class X11GLFactory extends GLFactory {
         new GLGPUInfo("x.org", null)
     };
 
-    private GLGPUInfo blackList[] = null;
+    private GLGPUInfo blackList[] = {
+        new GLGPUInfo("ati", "radeon x1300"),
+        new GLGPUInfo("ati", "radeon x1350"),
+        new GLGPUInfo("ati", "radeon x1400"),
+        new GLGPUInfo("ati", "radeon x1450"),
+        new GLGPUInfo("ati", "radeon x1500"),
+        new GLGPUInfo("ati", "radeon x1550"), 
+        new GLGPUInfo("ati", "radeon x1600"),
+        new GLGPUInfo("ati", "radeon x1650"),
+        new GLGPUInfo("ati", "radeon x1700"),
+        new GLGPUInfo("ati", "radeon x1800"),
+        new GLGPUInfo("ati", "radeon x1900"),
+        new GLGPUInfo("ati", "radeon x1950"),
+        new GLGPUInfo("x.org", "amd rv505"),
+        new GLGPUInfo("x.org", "amd rv515"),
+        new GLGPUInfo("x.org", "amd rv516"),
+        new GLGPUInfo("x.org", "amd r520"),
+        new GLGPUInfo("x.org", "amd rv530"),
+        new GLGPUInfo("x.org", "amd rv535"),
+        new GLGPUInfo("x.org", "amd rv560"),
+        new GLGPUInfo("x.org", "amd rv570"),
+        new GLGPUInfo("x.org", "amd r580"),
+        new GLGPUInfo("nvidia", "geforce 6100"),
+        new GLGPUInfo("nvidia", "geforce 6150"),
+        new GLGPUInfo("nvidia", "geforce 6200"),
+        new GLGPUInfo("nvidia", "geforce 6500"),
+        new GLGPUInfo("nvidia", "geforce 6600"),
+        new GLGPUInfo("nvidia", "geforce 6700"),
+        new GLGPUInfo("nvidia", "geforce 6800"),
+        new GLGPUInfo("nvidia", "geforce 7025"),
+        new GLGPUInfo("nvidia", "geforce 7100"),
+        new GLGPUInfo("nvidia", "geforce 7150"),
+        new GLGPUInfo("nvidia", "geforce 7200"),
+        new GLGPUInfo("nvidia", "geforce 7300"),
+        new GLGPUInfo("nvidia", "geforce 7350"),
+        new GLGPUInfo("nvidia", "geforce 7500"),
+        new GLGPUInfo("nvidia", "geforce 7600"),
+        new GLGPUInfo("nvidia", "geforce 7650"),
+        new GLGPUInfo("nvidia", "geforce 7800"),
+        new GLGPUInfo("nvidia", "geforce 7900"),
+        new GLGPUInfo("nvidia", "geforce 7950")
+    };
 
     @Override
     GLGPUInfo[] getPreQualificationFilter() {

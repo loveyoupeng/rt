@@ -58,8 +58,11 @@ import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.WeakHashMap;
+
 import com.sun.javafx.menu.MenuBase;
 import com.sun.javafx.scene.SceneHelper;
 import com.sun.javafx.scene.control.GlobalMenuAdapter;
@@ -174,7 +177,8 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
     private EventHandler<KeyEvent> keyEventHandler;
     private EventHandler<MouseEvent> mouseEventHandler;
     private ChangeListener<Boolean> menuBarFocusedPropertyListener;
-    
+    private ChangeListener<Scene> sceneChangeListener;
+
     EventHandler<KeyEvent> getKeyEventHandler() {
         return keyEventHandler;
     }
@@ -279,7 +283,9 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
              }
          };
         weakSceneKeyEventHandler = new WeakEventHandler<KeyEvent>(keyEventHandler);
-        control.getScene().addEventFilter(KeyEvent.KEY_PRESSED, weakSceneKeyEventHandler);
+        Utils.executeOnceWhenPropertyIsNonNull(control.sceneProperty(), (Scene scene) -> {
+            scene.addEventFilter(KeyEvent.KEY_PRESSED, weakSceneKeyEventHandler);
+        });
         
         // When we click else where in the scene - menu selection should be cleared.
         mouseEventHandler = t -> {
@@ -288,7 +294,9 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
             }
         };
         weakSceneMouseEventHandler = new WeakEventHandler<MouseEvent>(mouseEventHandler);
-        control.getScene().addEventFilter(MouseEvent.MOUSE_CLICKED, weakSceneMouseEventHandler);
+        Utils.executeOnceWhenPropertyIsNonNull(control.sceneProperty(), (Scene scene) -> {
+            scene.addEventFilter(MouseEvent.MOUSE_CLICKED, weakSceneMouseEventHandler);
+        });
         
         weakWindowFocusListener = new WeakChangeListener<Boolean>((ov, t, t1) -> {
             if (!t1) {
@@ -296,17 +304,21 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
             }
         });
         // When the parent window looses focus - menu selection should be cleared
-        if (control.getScene().getWindow() != null) {
-            control.getScene().getWindow().focusedProperty().addListener(weakWindowFocusListener);
-        } else {
-            ChangeListener<Window> sceneWindowListener = (observable, oldValue, newValue) -> {
-                if (oldValue != null) oldValue.focusedProperty().removeListener(weakWindowFocusListener);
-                if (newValue != null) newValue.focusedProperty().addListener(weakWindowFocusListener);
-            };
-            weakWindowSceneListener = new WeakChangeListener<Window>(sceneWindowListener);
-            control.getScene().windowProperty().addListener(weakWindowSceneListener);
-        }
-       
+        Utils.executeOnceWhenPropertyIsNonNull(control.sceneProperty(), (Scene scene) -> {
+            if (scene.getWindow() != null) {
+                scene.getWindow().focusedProperty().addListener(weakWindowFocusListener);
+            } else {
+                ChangeListener<Window> sceneWindowListener = (observable, oldValue, newValue) -> {
+                    if (oldValue != null)
+                        oldValue.focusedProperty().removeListener(weakWindowFocusListener);
+                    if (newValue != null)
+                        newValue.focusedProperty().addListener(weakWindowFocusListener);
+                };
+                weakWindowSceneListener = new WeakChangeListener<>(sceneWindowListener);
+                scene.windowProperty().addListener(weakWindowSceneListener);
+            }
+        });
+
         rebuildUI();
         control.getMenus().addListener((ListChangeListener<Menu>) c -> {
             rebuildUI();
@@ -345,7 +357,10 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
         } else {
            acceleratorKeyCombo = KeyCombination.keyCombination("F10");
         }
-        getSkinnable().getScene().getAccelerators().put(acceleratorKeyCombo, firstMenuRunnable);
+        Utils.executeOnceWhenPropertyIsNonNull(control.sceneProperty(), (Scene scene) -> {
+            scene.getAccelerators().put(acceleratorKeyCombo, firstMenuRunnable);
+        });
+
         ParentTraversalEngine engine = new ParentTraversalEngine(getSkinnable());
         engine.addTraverseListener(this);
         getSkinnable().setImpl_traversalEngine(engine);
@@ -514,53 +529,77 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
         }
         container.getChildren().clear();
 
+        if (Toolkit.getToolkit().getSystemMenu().isSupported()) {
 
-        if (Toolkit.getToolkit().getSystemMenu().isSupported() && getSkinnable().getScene() != null) {
-            Scene scene = getSkinnable().getScene();
-            if (scene.getWindow() instanceof Stage) {
-                Stage stage = (Stage)scene.getWindow();
-                MenuBarSkin curMBSkin = getMenuBarSkin(stage);
-                if (getSkinnable().isUseSystemMenuBar() && !menusContainCustomMenuItem()) {
-                    if (curMBSkin != null &&
-                        (curMBSkin.getSkinnable().getScene() == null || curMBSkin.getSkinnable().getScene().getWindow() == null)) {
-                        // Fix for RT-20951. The MenuBar may have been removed from the Stage.
-                        systemMenuMap.remove(stage);
-                        curMBSkin = null;
-                    }
+            final Scene scene = getSkinnable().getScene();
+            if (scene != null) {
+                // RT-36554 - make sure system menu is updated when this MenuBar's scene changes.
+                if (sceneChangeListener == null) {
+                    sceneChangeListener = (observable, oldValue, newValue) -> {
 
-                    // Set the system menu bar if not set by another
-                    // MenuBarSkin instance on this stage.
-                    if (systemMenuMap == null || curMBSkin == null || curMBSkin == this) {
-                        if (systemMenuMap == null) {
-                            initSystemMenuBar();
+                        if (oldValue != null) {
+                            if (oldValue.getWindow() instanceof Stage) {
+                                final Stage stage = (Stage) oldValue.getWindow();
+                                final MenuBarSkin curMBSkin = getMenuBarSkin(stage);
+                                if (curMBSkin == MenuBarSkin.this) {
+                                    curMBSkin.wrappedMenus = null;
+                                    systemMenuMap.remove(stage);
+                                    if (currentMenuBarStage == stage) {
+                                        currentMenuBarStage = null;
+                                        setSystemMenu(stage);
+                                    }
+                                }
+                            }
                         }
-                        if (wrappedMenus == null) {
-                            wrappedMenus = new ArrayList<>();
-                            systemMenuMap.put(stage, new WeakReference<>(this));
-                        } else {
-                            wrappedMenus.clear();
-                        }
-                        for (Menu menu : getSkinnable().getMenus()) {
-                            wrappedMenus.add(GlobalMenuAdapter.adapt(menu));
-                        }
-                        currentMenuBarStage = null;
-                        setSystemMenu(stage);
 
-                        getSkinnable().requestLayout();
-                        javafx.application.Platform.runLater(() -> {
-                            getSkinnable().requestLayout();
-                        });
-                        return;
-                    }
+                        if (newValue != null) {
+                            if (getSkinnable().isUseSystemMenuBar() && !menusContainCustomMenuItem()) {
+                                if (newValue.getWindow() instanceof Stage) {
+                                    final Stage stage = (Stage) newValue.getWindow();
+                                    if (systemMenuMap == null) {
+                                        initSystemMenuBar();
+                                    }
+                                    if (wrappedMenus == null) {
+                                        wrappedMenus = new ArrayList<>();
+                                        systemMenuMap.put(stage, new WeakReference<>(this));
+                                    } else {
+                                        wrappedMenus.clear();
+                                    }
+                                    for (Menu menu : getSkinnable().getMenus()) {
+                                        wrappedMenus.add(GlobalMenuAdapter.adapt(menu));
+                                    }
+                                    currentMenuBarStage = null;
+                                    setSystemMenu(stage);
+
+                                    // TODO: Why two request layout calls here?
+                                    getSkinnable().requestLayout();
+                                    javafx.application.Platform.runLater(() -> getSkinnable().requestLayout());
+                                }
+                            }
+                        }
+                    };
+                    getSkinnable().sceneProperty().addListener(sceneChangeListener);
                 }
 
-                if (curMBSkin == this) {
-                    // This MenuBar was previously installed in the
-                    // system menu bar. Remove it.
-                    wrappedMenus = null;
-                    systemMenuMap.remove(stage);
-                    currentMenuBarStage = null;
-                    setSystemMenu(stage);
+                // Fake a change event to trigger an update to the system menu.
+                sceneChangeListener.changed(getSkinnable().sceneProperty(), scene, scene);
+
+                // If the system menu references this MenuBarSkin, then we're done with rebuilding the UI.
+                // If the system menu does not reference this MenuBarSkin, then the MenuBar is a child of the scene
+                // and we continue with the update.
+                // If there is no system menu but this skinnable uses the system menu bar, then the
+                // stage just isn't focused yet (see setSystemMenu) and we're done rebuilding the UI.
+                if (currentMenuBarStage != null ? getMenuBarSkin(currentMenuBarStage) == MenuBarSkin.this : getSkinnable().isUseSystemMenuBar()) {
+                    return;
+                }
+
+            } else {
+                // if scene is null, make sure this MenuBarSkin isn't left behind as the system menu
+                if (currentMenuBarStage != null) {
+                    final MenuBarSkin curMBSkin = getMenuBarSkin(currentMenuBarStage);
+                    if (curMBSkin == MenuBarSkin.this) {
+                        setSystemMenu(null);
+                    }
                 }
             }
         }
@@ -749,6 +788,40 @@ public class MenuBarSkin extends BehaviorSkinBase<MenuBar, BehaviorBase<MenuBar>
                             showPrevMenu();
                         }
      */
+
+    @Override
+    public void dispose() {
+        cleanUpSystemMenu();
+        // call super.dispose last since it sets control to null
+        super.dispose();
+    }
+
+    private void cleanUpSystemMenu() {
+
+        if (sceneChangeListener != null && getSkinnable() != null) {
+            getSkinnable().sceneProperty().removeListener(sceneChangeListener);
+            // rebuildUI creates sceneChangeListener and adds sceneChangeListener to sceneProperty,
+            // so sceneChangeListener needs to be reset to null in the off chance that this
+            // skin instance is reused.
+            sceneChangeListener = null;
+        }
+
+        if (currentMenuBarStage != null && getMenuBarSkin(currentMenuBarStage) == MenuBarSkin.this) {
+            setSystemMenu(null);
+        }
+
+        if (systemMenuMap != null) {
+            Iterator<Map.Entry<Stage,Reference<MenuBarSkin>>> iterator = systemMenuMap.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Stage,Reference<MenuBarSkin>> entry = iterator.next();
+                Reference<MenuBarSkin> ref = entry.getValue();
+                MenuBarSkin skin = ref != null ? ref.get() : null;
+                if (skin == null || skin == MenuBarSkin.this) {
+                    iterator.remove();
+                }
+            }
+        }
+    }
 
     private boolean isMenuEmpty(Menu menu) {
         boolean retVal = true;
